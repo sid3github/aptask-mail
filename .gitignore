@@ -32,6 +32,16 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# generated PWA assets
+/public/sw.js
+/public/sw.js.map
+/public/workbox-*.js
+
+# test artifacts
+/playwright-report
+/test-results
 
 # vercel
 .vercel
@@ -39,3 +49,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+public/sw.js
+public/sw.js.map
+public/swe-worker-*.js
+public/workbox-*.js
