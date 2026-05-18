@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/lib/auth/config";
-import { GmailProvider } from "@/lib/email/providers/gmail";
 import type { ModifyOp } from "@/lib/email/providers/types";
+import { providerForMessageId } from "@/lib/email/load";
 
 export const runtime = "nodejs";
 
@@ -24,17 +23,13 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  const session = await auth();
-  if (!session?.accessToken) {
-    return NextResponse.json({ demo: true });
+  const provider = await providerForMessageId(parsed.data.id);
+  if (!provider) {
+    return NextResponse.json({ error: "No provider for this message" }, { status: 400 });
   }
   try {
-    if (session.provider === "google") {
-      const p = new GmailProvider(session.user?.email ?? "gmail", session.accessToken);
-      await p.modifyMessage(parsed.data.id, parsed.data.op as ModifyOp);
-      return NextResponse.json({ ok: true });
-    }
-    return NextResponse.json({ error: "Unsupported provider" }, { status: 400 });
+    await provider.modifyMessage(parsed.data.id, parsed.data.op as ModifyOp);
+    return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Modify failed" },

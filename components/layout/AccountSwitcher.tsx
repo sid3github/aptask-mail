@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { ChevronDown, Plus, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { signOutAction } from "@/lib/auth/actions";
 
 type Account = { id: string; email: string; provider: string };
 
@@ -66,7 +67,7 @@ export function AccountSwitcher({ accounts }: { accounts: Account[] }) {
           >
             <Plus size={14} /> Add another account
           </a>
-          <form action="/api/auth/signout" method="post">
+          <form action={signOutAction}>
             <Button
               type="submit"
               variant="ghost"
