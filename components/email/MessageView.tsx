@@ -157,14 +157,13 @@ export function MessageView({ message: initial }: { message: EmailMessage }) {
 
 function AiCard({ message }: { message: EmailMessage }) {
   return (
-    <div className="mt-4 flex items-start gap-2 rounded-lg border border-accent/30 bg-accent/5 p-3">
-      <Sparkles size={14} className="mt-1 shrink-0 text-accent" />
-      <div className="text-sm text-fg">
-        <span className="mr-1 font-semibold text-accent">AI summary:</span>
+    <div className="mt-5 flex items-start gap-2.5 rounded-lg border border-border bg-surface p-4">
+      <Sparkles size={13} className="mt-0.5 shrink-0 text-accent" />
+      <div className="text-sm leading-relaxed text-fg">
         {message.ai!.summary}
         {message.ai!.priorityReason && (
           <div className="mt-1 text-xs text-fg-muted">
-            Priority reasoning: {message.ai!.priorityReason}
+            {message.ai!.priorityReason}
           </div>
         )}
       </div>

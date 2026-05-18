@@ -27,18 +27,18 @@ export default function LoginPage({
   }
 
   return (
-    <div className="grid min-h-svh place-items-center bg-bg px-4">
-      <div className="w-full max-w-md">
-        <Link href="/" className="mb-6 inline-flex items-center gap-2">
-          <span className="grid h-8 w-8 place-items-center rounded-md bg-accent text-white">
-            <Sparkles size={16} />
+    <div className="grid min-h-svh place-items-center bg-bg px-4 py-12">
+      <div className="w-full max-w-sm">
+        <Link href="/" className="mb-10 inline-flex items-center gap-2">
+          <span className="grid h-7 w-7 place-items-center rounded-md bg-accent text-white">
+            <Sparkles size={14} />
           </span>
-          <span className="text-sm font-semibold tracking-tight">InboxIQ</span>
+          <span className="text-sm font-medium tracking-tight">InboxIQ</span>
         </Link>
 
-        <h1 className="text-2xl font-semibold tracking-tight text-fg">Sign in</h1>
-        <p className="mt-1 text-sm text-fg-muted">
-          Connect an email account to start using your AI-powered inbox.
+        <h1 className="text-2xl font-medium tracking-tight text-fg">Sign in</h1>
+        <p className="mt-2 text-sm text-fg-muted">
+          Connect an email account to begin.
         </p>
 
         <div className="mt-6 grid gap-3">

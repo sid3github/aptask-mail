@@ -45,93 +45,78 @@ export default function ImapLoginPage() {
   const p = PRESETS[preset];
 
   return (
-    <div className="grid min-h-svh place-items-center bg-bg px-4 py-10">
+    <div className="grid min-h-svh place-items-center bg-bg px-4 py-12">
       <div className="w-full max-w-md">
         <Link
           href="/login"
-          className="mb-6 inline-flex items-center gap-1 text-sm text-fg-muted hover:text-fg"
+          className="mb-8 inline-flex items-center gap-1 text-xs text-fg-muted transition-colors hover:text-fg"
         >
-          <ArrowLeft size={14} /> Back to sign-in options
+          <ArrowLeft size={12} /> Back
         </Link>
 
-        <div className="mb-6 flex items-center gap-2">
-          <span className="grid h-8 w-8 place-items-center rounded-md bg-accent text-white">
-            <Server size={16} />
-          </span>
-          <h1 className="text-xl font-semibold tracking-tight">
-            Add an IMAP account
-          </h1>
+        <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-wide text-fg-muted">
+          <Server size={12} className="text-accent" /> IMAP
         </div>
-
-        <p className="mb-6 text-sm text-fg-muted">
-          Connect any IMAP-capable mailbox. For Yahoo and AOL you must use an{" "}
-          <strong>app password</strong>, not your regular password — see the link below.
+        <h1 className="text-2xl font-medium tracking-tight text-fg">
+          Add a mailbox
+        </h1>
+        <p className="mt-2 text-sm text-fg-muted">
+          For Yahoo and AOL, use an <strong className="text-fg">app password</strong> — not your
+          account password.
         </p>
 
-        <form action={action} className="grid gap-3">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-fg-muted">Provider</label>
-            <div className="grid grid-cols-3 gap-2">
-              {(Object.keys(PRESETS) as Preset[]).map((k) => (
-                <label
-                  key={k}
-                  className={`cursor-pointer rounded-md border px-3 py-2 text-center text-xs font-medium transition ${
-                    preset === k
-                      ? "border-accent bg-accent/10 text-accent"
-                      : "border-border bg-surface text-fg-muted hover:text-fg"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="preset"
-                    value={k}
-                    className="sr-only"
-                    checked={preset === k}
-                    onChange={() => setPreset(k)}
-                  />
-                  {PRESETS[k].label}
-                </label>
-              ))}
-            </div>
+        <form action={action} className="mt-6 grid gap-4">
+          <div className="grid grid-cols-3 gap-2">
+            {(Object.keys(PRESETS) as Preset[]).map((k) => (
+              <label
+                key={k}
+                className={`cursor-pointer rounded-md border px-3 py-2.5 text-center text-xs transition-colors ${
+                  preset === k
+                    ? "border-accent/40 bg-accent/10 text-accent"
+                    : "border-border bg-surface text-fg-muted hover:text-fg"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="preset"
+                  value={k}
+                  className="sr-only"
+                  checked={preset === k}
+                  onChange={() => setPreset(k)}
+                />
+                {PRESETS[k].label.replace(" Mail", "")}
+              </label>
+            ))}
           </div>
 
+          <Input
+            name="email"
+            type="email"
+            autoComplete="email"
+            required
+            placeholder="you@yahoo.com"
+          />
+          <Input
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            placeholder="App password"
+          />
           {p.appPasswordUrl && (
             <a
               href={p.appPasswordUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-accent hover:underline"
+              className="-mt-2 inline-flex items-center gap-1 text-[11px] text-fg-muted hover:text-accent"
             >
-              <ExternalLink size={12} /> Get your {p.label} app password
+              <ExternalLink size={11} /> Generate {p.label} app password
             </a>
           )}
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-fg-muted">Email</label>
-            <Input
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              placeholder="you@yahoo.com"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-fg-muted">
-              App password
-            </label>
-            <Input
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              placeholder="xxxx xxxx xxxx xxxx"
-            />
-          </div>
-
-          <details className="rounded-md border border-border bg-surface px-3 py-2 text-sm" open={preset === "custom"}>
-            <summary className="cursor-pointer select-none text-xs font-medium text-fg-muted">
-              Server settings ({p.label})
+          <details className="rounded-md border border-border bg-surface px-3 py-2.5" open={preset === "custom"}>
+            <summary className="cursor-pointer select-none text-xs text-fg-muted hover:text-fg">
+              Server settings
             </summary>
             <div className="mt-3 grid gap-3">
               <div className="grid grid-cols-2 gap-2">
@@ -189,13 +174,13 @@ export default function ImapLoginPage() {
             </div>
           )}
 
-          <Button type="submit" disabled={pending} size="lg" className="mt-1 w-full">
+          <Button type="submit" disabled={pending} size="lg" className="mt-2 w-full">
             {pending ? "Connecting…" : "Connect mailbox"}
           </Button>
 
           <p className="text-center text-[11px] text-fg-muted">
-            Credentials are encrypted with AES-256-GCM and stored only in an
-            httpOnly cookie. They never touch a database in this demo.
+            Credentials are AES-256-GCM encrypted in an httpOnly cookie. No
+            database.
           </p>
         </form>
       </div>
