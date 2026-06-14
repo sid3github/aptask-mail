@@ -10,27 +10,27 @@ export function AppShell({
   accounts: { id: string; email: string; provider: string }[];
 }) {
   return (
-    <div className="flex min-h-svh flex-col bg-bg pb-16 md:pb-0">
-      <header className="sticky top-0 z-30 border-b border-border bg-bg/85 backdrop-blur">
+    <div className="flex min-h-svh flex-col bg-bg pb-[72px] md:pb-0">
+      <header className="sticky top-0 z-30 border-b border-border bg-bg/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 sm:px-6">
           <Link href="/inbox" className="flex items-center gap-2">
-            <span className="grid h-7 w-7 place-items-center rounded-md bg-accent text-white">
+            <span className="grid h-8 w-8 place-items-center rounded-xl bg-fg text-bg">
               <Sparkles size={14} />
             </span>
-            <span className="hidden text-sm font-medium tracking-tight sm:inline">
+            <span className="hidden font-display text-base font-semibold tracking-tight sm:inline">
               InboxIQ
             </span>
           </Link>
-          <div className="ml-auto flex flex-1 items-center gap-2 sm:max-w-sm">
-            <Link
-              href="/inbox?search=1"
-              className="flex h-9 flex-1 items-center gap-2 rounded-md border border-border bg-surface px-3 text-xs text-fg-muted transition-colors hover:text-fg"
-              aria-label="Search emails"
-            >
-              <Search size={13} />
-              <span className="truncate">Search mail</span>
-            </Link>
-          </div>
+
+          <Link
+            href="/inbox?search=1"
+            className="ml-auto flex h-10 max-w-sm flex-1 items-center gap-2 rounded-full border border-border bg-surface px-4 text-sm text-fg-subtle transition-colors hover:border-fg-subtle hover:text-fg-muted"
+            aria-label="Search mail"
+          >
+            <Search size={14} />
+            <span className="truncate">Search mail</span>
+          </Link>
+
           <AccountSwitcher accounts={accounts} />
         </div>
       </header>
@@ -44,27 +44,30 @@ export function AppShell({
 
 function MobileNav() {
   const items = [
-    { href: "/inbox", icon: <Inbox size={18} />, label: "Inbox" },
-    { href: "/inbox?label=STARRED", icon: <Star size={18} />, label: "Starred" },
-    { href: "/inbox?label=SENT", icon: <SendIcon size={18} />, label: "Sent" },
-    { href: "/compose", icon: <Pencil size={18} />, label: "Compose" },
+    { href: "/inbox", icon: Inbox, label: "Inbox" },
+    { href: "/inbox?label=STARRED", icon: Star, label: "Starred" },
+    { href: "/inbox?label=SENT", icon: SendIcon, label: "Sent" },
+    { href: "/compose", icon: Pencil, label: "Compose" },
   ];
   return (
     <nav
       aria-label="Primary"
-      className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-border bg-bg/95 backdrop-blur md:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-border bg-bg/90 backdrop-blur-md md:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      {items.map((it) => (
-        <Link
-          key={it.href}
-          href={it.href}
-          className="flex h-14 flex-col items-center justify-center gap-0.5 text-[10px] text-fg-muted transition-colors hover:text-fg"
-        >
-          {it.icon}
-          {it.label}
-        </Link>
-      ))}
+      {items.map((it) => {
+        const Icon = it.icon;
+        return (
+          <Link
+            key={it.href}
+            href={it.href}
+            className="flex h-[60px] flex-col items-center justify-center gap-1 text-[10px] font-medium text-fg-muted transition-colors hover:text-fg active:scale-95"
+          >
+            <Icon size={19} strokeWidth={1.75} />
+            {it.label}
+          </Link>
+        );
+      })}
     </nav>
   );
 }

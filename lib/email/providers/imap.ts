@@ -146,6 +146,8 @@ export class ImapProvider implements EmailProvider {
       host: this.creds.smtpHost,
       port: this.creds.smtpPort,
       secure: this.creds.smtpSecure,
+      // When not using implicit TLS (e.g. iCloud on 587), enforce STARTTLS.
+      requireTLS: !this.creds.smtpSecure,
       auth: { user: this.creds.user, pass: this.creds.pass },
     });
     const info = await transport.sendMail({

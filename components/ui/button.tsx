@@ -4,23 +4,23 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils/cn";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:pointer-events-none disabled:opacity-50 select-none",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:pointer-events-none disabled:opacity-50 select-none active:scale-[0.98]",
   {
     variants: {
       variant: {
-        primary: "bg-accent text-white hover:bg-accent/90 active:bg-accent/80",
+        primary:
+          "bg-accent text-accent-fg shadow-sm hover:bg-accent-hover hover:shadow-md",
         secondary:
-          "border border-border bg-surface text-fg hover:bg-surface/80 active:bg-surface/60",
-        ghost: "text-fg hover:bg-surface active:bg-surface/70",
-        destructive:
-          "bg-red-600 text-white hover:bg-red-500 active:bg-red-700",
-        link: "text-accent underline-offset-4 hover:underline px-0 h-auto",
+          "border border-border-strong bg-surface text-fg hover:bg-surface-2 hover:border-fg-subtle",
+        ghost: "text-fg hover:bg-surface-2",
+        destructive: "bg-danger text-white hover:opacity-90",
+        link: "text-accent underline-offset-4 hover:underline px-0 h-auto rounded-none",
       },
       size: {
-        sm: "h-9 px-3 text-xs",
-        md: "h-11 px-4",
-        lg: "h-12 px-6 text-base",
-        icon: "h-11 w-11",
+        sm: "h-9 px-3.5 text-xs",
+        md: "h-11 px-5 text-sm",
+        lg: "h-12 px-6 text-[15px]",
+        icon: "h-10 w-10",
       },
     },
     defaultVariants: { variant: "primary", size: "md" },

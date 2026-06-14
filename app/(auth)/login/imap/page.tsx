@@ -9,29 +9,47 @@ import { imapSignIn, type ImapFormState } from "./actions";
 
 type Preset = "yahoo" | "aol" | "custom";
 
-const PRESETS: Record<Preset, { label: string; host: string; port: number; smtpHost: string; smtpPort: number; appPasswordUrl: string }> = {
+const PRESETS: Record<
+  Preset,
+  {
+    label: string;
+    host: string;
+    port: number;
+    secure: boolean;
+    smtpHost: string;
+    smtpPort: number;
+    smtpSecure: boolean;
+    appPasswordUrl: string;
+  }
+> = {
   yahoo: {
     label: "Yahoo Mail",
     host: "imap.mail.yahoo.com",
     port: 993,
+    secure: true,
     smtpHost: "smtp.mail.yahoo.com",
     smtpPort: 465,
-    appPasswordUrl: "https://login.yahoo.com/account/security/app-passwords",
+    smtpSecure: true,
+    appPasswordUrl: "https://login.yahoo.com/myaccount/security/app-password",
   },
   aol: {
     label: "AOL Mail",
     host: "imap.aol.com",
     port: 993,
+    secure: true,
     smtpHost: "smtp.aol.com",
     smtpPort: 465,
+    smtpSecure: true,
     appPasswordUrl: "https://login.aol.com/account/security",
   },
   custom: {
     label: "Custom IMAP",
     host: "",
     port: 993,
+    secure: true,
     smtpHost: "",
     smtpPort: 465,
+    smtpSecure: true,
     appPasswordUrl: "",
   },
 };
@@ -54,10 +72,10 @@ export default function ImapLoginPage() {
           <ArrowLeft size={12} /> Back
         </Link>
 
-        <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-wide text-fg-muted">
+        <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-[0.08em] text-fg-muted">
           <Server size={12} className="text-accent" /> IMAP
         </div>
-        <h1 className="text-2xl font-medium tracking-tight text-fg">
+        <h1 className="font-display text-3xl font-semibold tracking-tight text-fg">
           Add a mailbox
         </h1>
         <p className="mt-2 text-sm text-fg-muted">
@@ -114,7 +132,7 @@ export default function ImapLoginPage() {
             </a>
           )}
 
-          <details className="rounded-md border border-border bg-surface px-3 py-2.5" open={preset === "custom"}>
+          <details key={preset} className="rounded-md border border-border bg-surface px-3 py-2.5" open={preset === "custom"}>
             <summary className="cursor-pointer select-none text-xs text-fg-muted hover:text-fg">
               Server settings
             </summary>
@@ -151,7 +169,7 @@ export default function ImapLoginPage() {
                 <input
                   type="checkbox"
                   name="secure"
-                  defaultChecked
+                  defaultChecked={p.secure}
                   className="h-4 w-4 rounded border-border"
                 />
                 IMAP uses TLS
@@ -160,10 +178,10 @@ export default function ImapLoginPage() {
                 <input
                   type="checkbox"
                   name="smtpSecure"
-                  defaultChecked
+                  defaultChecked={p.smtpSecure}
                   className="h-4 w-4 rounded border-border"
                 />
-                SMTP uses TLS
+                SMTP uses implicit TLS (off = STARTTLS, e.g. port 587)
               </label>
             </div>
           </details>

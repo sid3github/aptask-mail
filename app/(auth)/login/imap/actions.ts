@@ -16,12 +16,13 @@ export async function imapSignIn(
   const preset = PRESETS[presetKey] ?? PRESETS.custom;
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  const host = String(formData.get("host") ?? preset.host).trim();
-  const port = Number(formData.get("port") ?? preset.port);
-  const secure = formData.get("secure") !== "off";
-  const smtpHost = String(formData.get("smtpHost") ?? preset.smtpHost).trim();
-  const smtpPort = Number(formData.get("smtpPort") ?? preset.smtpPort);
-  const smtpSecure = formData.get("smtpSecure") !== "off";
+  const host = String(formData.get("host") || preset.host).trim();
+  const port = Number(formData.get("port") || preset.port);
+  // Unchecked checkboxes submit nothing, so "on" means checked.
+  const secure = formData.get("secure") === "on";
+  const smtpHost = String(formData.get("smtpHost") || preset.smtpHost).trim();
+  const smtpPort = Number(formData.get("smtpPort") || preset.smtpPort);
+  const smtpSecure = formData.get("smtpSecure") === "on";
 
   if (!email || !password || !host || !smtpHost) {
     return { error: "Email, password, IMAP host and SMTP host are all required." };

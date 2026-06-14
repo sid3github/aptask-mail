@@ -9,10 +9,12 @@ import type { ImapCredentials } from "@/lib/email/providers/imap";
 const COOKIE_NAME = "iq_imap";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
+export type ImapPreset = "yahoo" | "aol" | "custom";
+
 export type ImapAccount = ImapCredentials & {
   accountId: string;
   displayEmail: string;
-  preset: "yahoo" | "aol" | "custom";
+  preset: ImapPreset;
 };
 
 function getKey(): Buffer {
@@ -75,7 +77,7 @@ export async function clearImapAccount(): Promise<void> {
 }
 
 export const PRESETS: Record<
-  "yahoo" | "aol" | "custom",
+  ImapPreset,
   { label: string; host: string; port: number; secure: boolean; smtpHost: string; smtpPort: number; smtpSecure: boolean }
 > = {
   yahoo: {

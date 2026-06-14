@@ -4,13 +4,7 @@ import { availableProviders } from "@/lib/auth/providers-available";
 import { Button } from "@/components/ui/button";
 import { signIn } from "@/lib/auth/config";
 
-export default function LoginPage({
-  searchParams,
-}: {
-  searchParams?: Promise<{ error?: string }>;
-}) {
-  // No await on searchParams here — only used by errored sub-component.
-  void searchParams;
+export default function LoginPage() {
   const providers = availableProviders();
   const hasGoogle = providers.includes("google");
   const hasMicrosoft = providers.includes("microsoft");
@@ -27,21 +21,33 @@ export default function LoginPage({
   }
 
   return (
-    <div className="grid min-h-svh place-items-center bg-bg px-4 py-12">
-      <div className="w-full max-w-sm">
+    <div className="relative grid min-h-svh place-items-center overflow-hidden bg-bg px-4 py-12">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 -top-32 h-[360px] opacity-70"
+        style={{
+          background:
+            "radial-gradient(50% 60% at 50% 0%, color-mix(in oklab, var(--accent) 13%, transparent), transparent 70%)",
+        }}
+      />
+      <div className="fade-up relative w-full max-w-sm">
         <Link href="/" className="mb-10 inline-flex items-center gap-2">
-          <span className="grid h-7 w-7 place-items-center rounded-md bg-accent text-white">
-            <Sparkles size={14} />
+          <span className="grid h-8 w-8 place-items-center rounded-xl bg-fg text-bg">
+            <Sparkles size={15} />
           </span>
-          <span className="text-sm font-medium tracking-tight">InboxIQ</span>
+          <span className="font-display text-lg font-semibold tracking-tight">
+            InboxIQ
+          </span>
         </Link>
 
-        <h1 className="text-2xl font-medium tracking-tight text-fg">Sign in</h1>
+        <h1 className="font-display text-3xl font-semibold tracking-tight text-fg">
+          Welcome back
+        </h1>
         <p className="mt-2 text-sm text-fg-muted">
-          Connect an email account to begin.
+          Connect an account to open your AI-triaged inbox.
         </p>
 
-        <div className="mt-6 grid gap-3">
+        <div className="mt-8 grid gap-3">
           {hasGoogle && (
             <form action={signInGoogle}>
               <Button
@@ -62,40 +68,44 @@ export default function LoginPage({
                 variant="secondary"
                 className="w-full justify-start"
               >
-                <MicrosoftLogo /> Continue with Microsoft (Outlook / O365)
+                <MicrosoftLogo /> Continue with Microsoft
               </Button>
             </form>
           )}
           {hasImap && (
             <Link href="/login/imap">
-              <Button size="lg" variant="secondary" className="w-full justify-start">
-                <Server size={16} /> Continue with IMAP (Yahoo, AOL, custom)
+              <Button
+                size="lg"
+                variant="secondary"
+                className="w-full justify-start"
+              >
+                <Server size={16} className="text-fg-muted" /> Continue with IMAP
               </Button>
             </Link>
           )}
         </div>
 
         {noProvider && (
-          <div className="mt-6 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
-            <div className="font-semibold text-amber-300">No providers configured</div>
-            <p className="mt-1 text-amber-200/80">
-              Set <code>GOOGLE_CLIENT_ID</code> / <code>AZURE_AD_CLIENT_ID</code> /{" "}
-              <code>IMAP_ENCRYPTION_KEY</code> in your environment to enable sign-in. See{" "}
-              <code>.env.example</code>.
+          <div className="mt-6 rounded-xl border border-amber/30 bg-amber/10 p-4 text-sm">
+            <div className="font-semibold text-amber">No providers configured</div>
+            <p className="mt-1 text-fg-muted">
+              Set <code className="text-fg">GOOGLE_CLIENT_ID</code> /{" "}
+              <code className="text-fg">AZURE_AD_CLIENT_ID</code> /{" "}
+              <code className="text-fg">IMAP_ENCRYPTION_KEY</code> to enable
+              sign-in.
             </p>
             <Link
               href="/inbox"
-              className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-amber-300 underline"
+              className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-amber"
             >
-              <Mail size={12} /> Skip and open the demo inbox
+              <Mail size={12} /> Skip — open the demo inbox
             </Link>
           </div>
         )}
 
-        <p className="mt-8 text-center text-xs text-fg-muted">
-          By signing in you authorize InboxIQ to read, send, and modify your email
-          via OAuth scopes. You can revoke access any time from your
-          provider&apos;s account settings.
+        <p className="mt-8 text-xs leading-relaxed text-fg-subtle">
+          You authorize InboxIQ to read, send, and modify mail via OAuth scopes.
+          Revoke anytime from your provider&apos;s settings.
         </p>
       </div>
     </div>

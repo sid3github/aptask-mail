@@ -81,9 +81,17 @@ export function MessageAiEnrichment({
   }, [message.id]);
 
   return (
-    <div className="mt-4 flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-xs text-fg-muted">
-      <Sparkles size={12} className="text-accent" />
-      <span>AI summary loading…</span>
+    <div className="mt-6 rounded-2xl border border-accent/15 bg-accent-soft/60 p-4">
+      <div className="flex items-center gap-2">
+        <Sparkles size={13} className="animate-pulse text-accent" />
+        <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-accent">
+          AI summary
+        </span>
+      </div>
+      <div className="mt-3 space-y-2">
+        <div className="h-3 w-full rounded skeleton" />
+        <div className="h-3 w-3/5 rounded skeleton" />
+      </div>
     </div>
   );
 }

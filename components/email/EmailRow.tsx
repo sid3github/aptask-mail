@@ -18,17 +18,24 @@ export function EmailRow({ message }: { message: EmailMessage }) {
     <Link
       href={`/inbox/${encodeURIComponent(message.id)}`}
       className={cn(
-        "group flex items-start gap-3 border-b border-border px-4 py-4 transition-colors active:bg-surface/80 sm:px-6 sm:py-5",
-        message.unread ? "bg-bg" : "bg-bg",
-        "hover:bg-surface/60",
+        "group relative flex items-start gap-3 px-4 py-4 transition-colors sm:px-6",
+        "hover:bg-surface-2/60 active:bg-surface-2",
       )}
     >
+      {/* unread accent bar */}
+      {message.unread && (
+        <span
+          aria-hidden
+          className="absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-full bg-accent"
+        />
+      )}
+
       <div
         className={cn(
-          "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-medium",
+          "mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-full text-[13px] font-semibold transition-colors",
           message.unread
-            ? "bg-accent/15 text-accent"
-            : "bg-surface text-fg-muted",
+            ? "bg-accent-soft text-accent"
+            : "bg-surface-2 text-fg-muted",
         )}
         aria-hidden
       >
@@ -46,16 +53,12 @@ export function EmailRow({ message }: { message: EmailMessage }) {
             {display}
           </span>
           {message.starred && (
-            <Star
-              size={11}
-              className="shrink-0 fill-amber-400 text-amber-400"
-              aria-label="starred"
-            />
+            <Star size={12} className="shrink-0 fill-amber text-amber" aria-label="starred" />
           )}
           {message.hasAttachments && (
-            <Paperclip size={11} className="shrink-0 text-fg-muted" aria-label="attachment" />
+            <Paperclip size={12} className="shrink-0 text-fg-subtle" aria-label="attachment" />
           )}
-          <span className="ml-auto shrink-0 text-[11px] text-fg-muted">
+          <span className="ml-auto shrink-0 text-[11px] tabular-nums text-fg-subtle">
             {emailDate(message.date)}
           </span>
         </div>
@@ -69,11 +72,13 @@ export function EmailRow({ message }: { message: EmailMessage }) {
           {message.subject}
         </div>
 
-        {message.ai?.summary && (
+        {message.ai?.summary ? (
           <div className="mt-1.5 flex items-start gap-1.5 text-[13px] leading-snug text-fg-muted">
-            <Sparkles size={11} className="mt-1 shrink-0 text-accent" aria-hidden />
+            <Sparkles size={11} className="mt-[3px] shrink-0 text-accent" aria-hidden />
             <span className="line-clamp-2">{message.ai.summary}</span>
           </div>
+        ) : (
+          <div className="mt-2 h-3 w-2/3 rounded skeleton" aria-hidden />
         )}
 
         {message.ai?.priority && (

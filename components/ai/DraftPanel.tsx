@@ -1,9 +1,9 @@
 "use client";
 import { useState } from "react";
-import { Sparkles, X, Send } from "lucide-react";
+import { Sparkles, X, Send, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea, Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils/cn";
 import type { EmailAddress } from "@/lib/email/providers/types";
 
 type Tone = "formal" | "casual" | "short";
@@ -70,6 +70,7 @@ export function DraftPanel({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          accountId,
           to: [{ email: toAddress.email, name: toAddress.name }],
           subject,
           bodyText: body,
@@ -87,87 +88,97 @@ export function DraftPanel({
     }
   }
 
-  void accountId;
-
   return (
     <section
       role="dialog"
       aria-label="AI draft reply"
-      className="sticky bottom-0 z-20 mt-6 border-t border-border bg-surface/95 px-3 py-4 backdrop-blur sm:px-5 sm:py-5"
+      className="fade-up sticky bottom-0 z-20 border-t border-border bg-surface/95 px-4 py-4 backdrop-blur-md sm:px-8 sm:py-5"
     >
-      <div className="flex items-center gap-2">
-        <Sparkles size={16} className="text-accent" />
-        <h2 className="text-sm font-semibold text-fg">AI draft reply</h2>
-        <button
-          onClick={onClose}
-          aria-label="Close draft panel"
-          className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-bg"
-        >
-          <X size={16} />
-        </button>
-      </div>
-
-      {sentId ? (
-        <div className="mt-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-3 text-sm text-emerald-200">
-          Sent. <code className="text-xs opacity-70">{sentId}</code>
+      <div className="mx-auto max-w-3xl">
+        <div className="flex items-center gap-2">
+          <Sparkles size={15} className="text-accent" />
+          <h2 className="font-display text-sm font-semibold text-fg">AI draft reply</h2>
+          <span className="text-xs text-fg-subtle">to {toAddress.name || toAddress.email}</span>
+          <button
+            onClick={onClose}
+            aria-label="Close draft panel"
+            className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-full text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+          >
+            <X size={16} />
+          </button>
         </div>
-      ) : (
-        <div className="mt-3 grid gap-3">
-          <Input
-            placeholder="What do you want to say? (e.g. 'Yes, confirm I'll be there')"
-            value={intent}
-            onChange={(e) => setIntent(e.target.value)}
-          />
-          <div className="flex flex-wrap gap-2">
-            {(["formal", "casual", "short"] as Tone[]).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTone(t)}
-                className="rounded-full transition"
-                aria-pressed={tone === t}
+
+        {sentId ? (
+          <div className="mt-4 flex items-center gap-2 rounded-xl border border-accent/20 bg-accent-soft px-4 py-3 text-sm text-fg">
+            <Check size={16} className="text-accent" />
+            Reply sent.
+          </div>
+        ) : (
+          <div className="mt-4 grid gap-3">
+            <Input
+              placeholder="What do you want to say? e.g. “Yes, I'll be there at 2pm”"
+              value={intent}
+              onChange={(e) => setIntent(e.target.value)}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex gap-1 rounded-full bg-surface-2 p-1">
+                {(["formal", "casual", "short"] as Tone[]).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTone(t)}
+                    aria-pressed={tone === t}
+                    className={cn(
+                      "rounded-full px-3 py-1 text-xs font-medium capitalize transition-colors",
+                      tone === t
+                        ? "bg-surface text-fg shadow-sm"
+                        : "text-fg-muted hover:text-fg",
+                    )}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+              <Button
+                size="sm"
+                onClick={generate}
+                disabled={generating || sending}
+                className="ml-auto"
                 type="button"
               >
-                <Badge tone={tone === t ? "important" : "neutral"}>{t}</Badge>
-              </button>
-            ))}
-            <Button
-              size="sm"
-              onClick={generate}
-              disabled={generating || sending}
-              className="ml-auto"
-              type="button"
-            >
-              <Sparkles size={14} />
-              {generating ? "Generating…" : "Generate"}
-            </Button>
-          </div>
-          {error && (
-            <div className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
-              {error}
+                <Sparkles size={14} />
+                {generating ? "Writing…" : body ? "Regenerate" : "Generate"}
+              </Button>
             </div>
-          )}
-          <Textarea
-            placeholder="Your reply will appear here. Edit before sending."
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            rows={6}
-          />
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-fg-muted">
-              Drafts are AI-generated. Always review before sending.
-            </p>
-            <Button
-              size="sm"
-              variant="primary"
-              disabled={!body || sending}
-              onClick={send}
-              type="button"
-            >
-              <Send size={14} /> {sending ? "Sending…" : "Send"}
-            </Button>
+
+            {error && (
+              <div className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">
+                {error}
+              </div>
+            )}
+
+            <Textarea
+              placeholder="Your reply appears here. Edit before sending."
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows={6}
+            />
+
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-fg-subtle">AI-generated — always review before sending.</p>
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={!body || sending}
+                onClick={send}
+                type="button"
+              >
+                <Send size={14} /> {sending ? "Sending…" : "Send"}
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </section>
   );
 }

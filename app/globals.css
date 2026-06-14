@@ -1,42 +1,177 @@
 @import "tailwindcss";
 
-@theme inline {
-  --color-bg: #0b0d12;
-  --color-surface: #14171f;
-  --color-border: #232732;
-  --color-fg: #f5f6f8;
-  --color-fg-muted: #9ca3af;
-  --color-accent: #5b6bff;
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ─────────────────────────────────────────────────────────────────────────
+   InboxIQ design tokens — "warm editorial minimalism"
+   Paper-toned surfaces, ink text, one confident accent. Light by default,
+   with a warm dark variant. All runtime values live on :root so the media
+   query can override them; Tailwind utilities reference them via @theme.
+   ──────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --bg: #fbfaf7;          /* warm paper */
+  --surface: #ffffff;     /* raised cards */
+  --surface-2: #f4f1ea;   /* sunken / hover fill */
+  --border: #e9e4d9;      /* soft warm hairline */
+  --border-strong: #ddd6c8;
+  --fg: #1b1a16;          /* warm near-black ink */
+  --fg-muted: #79746a;    /* warm gray */
+  --fg-subtle: #a9a399;
+  --accent: #3b4ee0;      /* confident cobalt */
+  --accent-hover: #2f40c9;
+  --accent-fg: #ffffff;
+  --accent-soft: #eceeff; /* tinted accent surface */
+  --amber: #b8791f;       /* AI signal / star */
+  --danger: #c0392b;
+  --shadow-color: 30 28 22;
 }
 
-@media (prefers-color-scheme: light) {
-  @theme inline {
-    --color-bg: #fafafa;
-    --color-surface: #ffffff;
-    --color-border: #e8e8eb;
-    --color-fg: #0b0d12;
-    --color-fg-muted: #6b7280;
-    --color-accent: #4f5dff;
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #100f0c;
+    --surface: #1a1814;
+    --surface-2: #221f19;
+    --border: #2c281f;
+    --border-strong: #3a3528;
+    --fg: #f4f1e8;
+    --fg-muted: #a39d8f;
+    --fg-subtle: #6f6a5d;
+    --accent: #8b97ff;
+    --accent-hover: #a3acff;
+    --accent-fg: #12131a;
+    --accent-soft: #1c1d2e;
+    --amber: #e6b15a;
+    --danger: #e8705f;
+    --shadow-color: 0 0 0;
   }
 }
 
-html,
-body {
-  background: var(--color-bg);
-  color: var(--color-fg);
-  font-family: var(--font-sans), Inter, ui-sans-serif, system-ui, sans-serif;
-  -webkit-tap-highlight-color: transparent;
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-amber: var(--amber);
+  --color-danger: var(--danger);
+
+  --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+
+  --radius-lg: 14px;
+  --radius-xl: 20px;
 }
 
-/* Disable rubber band scroll background on iOS PWA */
+/* ── Base ─────────────────────────────────────────────────────────────── */
 html {
-  background-color: var(--color-bg);
+  background-color: var(--bg);
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
 }
 
-/* Prose tweaks for email HTML bodies */
+body {
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv01";
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--accent) 22%, transparent);
+  color: var(--fg);
+}
+
+/* Quiet, theme-aware scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 3px solid var(--bg);
+  border-radius: 999px;
+}
+
+/* Display type: optical serif, tightened */
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+  font-optical-sizing: auto;
+}
+
+/* Email HTML bodies */
 .prose img {
   max-width: 100%;
   height: auto;
+}
+
+/* ── Motion ───────────────────────────────────────────────────────────── */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.fade-up {
+  animation: fade-up 0.65s cubic-bezier(0.22, 0.7, 0.2, 1) both;
+}
+.fade-in {
+  animation: fade-in 0.5s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Skeleton shimmer */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--fg) 6%, transparent),
+    transparent
+  );
+  animation: shimmer 1.5s infinite;
 }

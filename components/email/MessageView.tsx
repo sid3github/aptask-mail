@@ -1,7 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, Reply, Star, Trash2, Sparkles, ArrowLeft } from "lucide-react";
+import { Archive, Star, Trash2, Sparkles, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import type { EmailMessage } from "@/lib/email/providers/types";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,13 @@ import { PriorityBadge } from "./PriorityBadge";
 import { emailDateFull } from "@/lib/utils/date";
 import { DraftPanel } from "@/components/ai/DraftPanel";
 import { MessageAiEnrichment } from "@/components/ai/MessageAiEnrichment";
+import { cn } from "@/lib/utils/cn";
+
+function initials(name?: string, email?: string): string {
+  const src = name ?? email ?? "?";
+  const parts = src.split(/[\s@.]+/).filter(Boolean).slice(0, 2);
+  return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "?";
+}
 
 export function MessageView({ message: initial }: { message: EmailMessage }) {
   const [message, setMessage] = useState(initial);
@@ -61,74 +68,58 @@ export function MessageView({ message: initial }: { message: EmailMessage }) {
 
   return (
     <article className="flex flex-col">
-      <header className="sticky top-0 z-10 flex items-center gap-1 border-b border-border bg-bg/95 px-3 py-3 backdrop-blur sm:px-5">
+      <header className="sticky top-[57px] z-10 flex items-center gap-1 border-b border-border bg-bg/85 px-2 py-2.5 backdrop-blur-md sm:px-4">
         <Link
           href="/inbox"
           aria-label="Back to inbox"
-          className="-ml-1 inline-flex h-9 w-9 items-center justify-center rounded-md text-fg hover:bg-surface"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full text-fg transition-colors hover:bg-surface-2"
         >
           <ArrowLeft size={18} />
         </Link>
-        <div className="ml-1 flex items-center gap-1">
+        <div className="flex items-center">
+          <IconButton icon={<Archive size={18} />} label="Archive" onClick={onArchive} disabled={busy !== null} />
+          <IconButton icon={<Trash2 size={18} />} label="Delete" onClick={onTrash} disabled={busy !== null} />
           <IconButton
-            icon={<Archive size={18} />}
-            label="Archive"
-            onClick={onArchive}
-            disabled={busy !== null}
-          />
-          <IconButton
-            icon={<Trash2 size={18} />}
-            label="Delete"
-            onClick={onTrash}
-            disabled={busy !== null}
-          />
-          <IconButton
-            icon={
-              <Star
-                size={18}
-                className={message.starred ? "fill-amber-400 text-amber-400" : ""}
-              />
-            }
+            icon={<Star size={18} className={message.starred ? "fill-amber text-amber" : ""} />}
             label={message.starred ? "Unstar" : "Star"}
             onClick={onStar}
             disabled={busy !== null}
           />
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="primary"
-            onClick={() => setShowDraft((v) => !v)}
-            disabled={busy !== null}
-          >
+        <div className="ml-auto">
+          <Button size="sm" variant="primary" onClick={() => setShowDraft((v) => !v)} disabled={busy !== null}>
             <Sparkles size={14} /> Draft reply
-          </Button>
-          <Button size="sm" variant="secondary" onClick={() => setShowDraft(true)}>
-            <Reply size={14} /> Reply
           </Button>
         </div>
       </header>
 
-      <div className="px-3 py-4 sm:px-5 sm:py-6">
-        <h1 className="text-xl font-semibold leading-tight text-fg sm:text-2xl">
+      <div className="px-4 py-6 sm:px-8 sm:py-8">
+        <h1 className="font-display text-2xl font-semibold leading-tight tracking-tight text-fg sm:text-[28px]">
           {message.subject}
         </h1>
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-fg-muted">
-          <span>{fromLabel}</span>
-          <span>•</span>
-          <time>{emailDateFull(message.date)}</time>
+
+        <div className="mt-4 flex items-center gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-surface-2 text-[13px] font-semibold text-fg-muted">
+            {initials(message.from.name, message.from.email)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-medium text-fg">
+              {message.from.name || message.from.email}
+            </div>
+            <div className="truncate text-xs text-fg-muted">
+              <time>{emailDateFull(message.date)}</time>
+            </div>
+          </div>
           {message.ai?.priority && <PriorityBadge priority={message.ai.priority} />}
         </div>
 
         {error && (
-          <div className="mt-3 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+          <div className="mt-4 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">
             {error}
           </div>
         )}
 
-        {message.ai?.summary && (
-          <AiCard message={message} />
-        )}
+        {message.ai?.summary && <AiCard message={message} />}
         {!message.ai && (
           <MessageAiEnrichment
             message={message}
@@ -157,16 +148,17 @@ export function MessageView({ message: initial }: { message: EmailMessage }) {
 
 function AiCard({ message }: { message: EmailMessage }) {
   return (
-    <div className="mt-5 flex items-start gap-2.5 rounded-lg border border-border bg-surface p-4">
-      <Sparkles size={13} className="mt-0.5 shrink-0 text-accent" />
-      <div className="text-sm leading-relaxed text-fg">
-        {message.ai!.summary}
-        {message.ai!.priorityReason && (
-          <div className="mt-1 text-xs text-fg-muted">
-            {message.ai!.priorityReason}
-          </div>
-        )}
+    <div className="mt-6 rounded-2xl border border-accent/15 bg-accent-soft/60 p-4">
+      <div className="flex items-center gap-2">
+        <Sparkles size={13} className="text-accent" />
+        <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-accent">
+          AI summary
+        </span>
       </div>
+      <p className="mt-2 text-sm leading-relaxed text-fg">{message.ai!.summary}</p>
+      {message.ai!.priorityReason && (
+        <p className="mt-1.5 text-xs text-fg-muted">{message.ai!.priorityReason}</p>
+      )}
     </div>
   );
 }
@@ -188,7 +180,7 @@ function IconButton({
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className="inline-flex h-9 w-9 items-center justify-center rounded-md text-fg hover:bg-surface disabled:opacity-40"
+      className="inline-flex h-10 w-10 items-center justify-center rounded-full text-fg transition-colors hover:bg-surface-2 disabled:opacity-40"
     >
       {icon}
     </button>
@@ -199,13 +191,18 @@ function Body({ html, text }: { html?: string; text?: string }) {
   if (html) {
     return (
       <div
-        className="prose prose-invert mt-6 max-w-none text-sm leading-relaxed [&_a]:text-accent [&_a]:underline"
+        className={cn(
+          "mt-7 max-w-none text-[15px] leading-relaxed text-fg",
+          "[&_a]:text-accent [&_a]:underline [&_a]:underline-offset-2",
+          "[&_p]:my-3 [&_h1]:font-display [&_h2]:font-display [&_h3]:font-display",
+          "[&_img]:rounded-lg [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-fg-muted",
+        )}
         dangerouslySetInnerHTML={{ __html: html }}
       />
     );
   }
   return (
-    <pre className="mt-6 whitespace-pre-wrap font-sans text-sm leading-relaxed text-fg">
+    <pre className="mt-7 whitespace-pre-wrap font-sans text-[15px] leading-relaxed text-fg">
       {text}
     </pre>
   );
