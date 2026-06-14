@@ -77,9 +77,9 @@ export function EmailRow({ message }: { message: EmailMessage }) {
             <Sparkles size={11} className="mt-[3px] shrink-0 text-accent" aria-hidden />
             <span className="line-clamp-2">{message.ai.summary}</span>
           </div>
-        ) : (
+        ) : message.ai === undefined ? (
           <div className="mt-2 h-3 w-2/3 rounded skeleton" aria-hidden />
-        )}
+        ) : null}
 
         {message.ai?.priority && (
           <div className="mt-2">

@@ -18,10 +18,11 @@ export async function POST(req: Request) {
   try {
     const out = await generateDraft(parsed.data);
     return NextResponse.json(out);
-  } catch (err) {
+  } catch {
+    // Sanitize provider errors (billing, rate limit, etc.) into one friendly line.
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "AI draft failed" },
-      { status: 500 },
+      { error: "AI is temporarily unavailable. Please try again in a moment." },
+      { status: 503 },
     );
   }
 }

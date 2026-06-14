@@ -7,6 +7,7 @@ type AiResult = {
   summary?: string;
   priority?: AiPriority;
   priorityReason?: string;
+  unavailable?: boolean;
 };
 
 const CACHE_KEY = "inboxiq:ai-cache:v1";
@@ -66,12 +67,17 @@ export function MessageAiEnrichment({
       .then((j: { results: Record<string, AiResult> }) => {
         if (cancelled) return;
         const ai = j.results[message.id];
-        if (!ai) return;
+        // Unavailable / empty → mark enriched-empty (clears the loading card,
+        // shows no AI card). Don't cache so it retries on reload.
+        if (!ai || ai.unavailable || !ai.summary) {
+          onEnriched({});
+          return;
+        }
         writeCache({ ...cache, [message.id]: ai });
         onEnriched(ai);
       })
       .catch(() => {
-        // silent
+        if (!cancelled) onEnriched({});
       });
     return () => {
       cancelled = true;

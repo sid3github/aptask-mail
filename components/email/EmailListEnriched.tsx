@@ -7,6 +7,7 @@ type AiResult = {
   summary?: string;
   priority?: AiPriority;
   priorityReason?: string;
+  unavailable?: boolean;
 };
 
 const CACHE_KEY = "inboxiq:ai-cache:v1";
@@ -63,14 +64,24 @@ export function EmailListEnriched({
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((j: { results: Record<string, AiResult> }) => {
         if (cancelled) return;
-        const merged = { ...cache, ...j.results };
-        writeCache(merged);
+        // Cache only real successes; let unavailable ones retry on reload.
+        const real = Object.fromEntries(
+          Object.entries(j.results).filter(([, v]) => v && !v.unavailable && v.summary),
+        );
+        writeCache({ ...cache, ...real });
         setMessages((curr) =>
-          curr.map((m) => (m.ai ? m : j.results[m.id] ? { ...m, ai: j.results[m.id] } : m)),
+          curr.map((m) => {
+            if (m.ai) return m;
+            const r = j.results[m.id];
+            if (!r) return m;
+            // Empty object = "enrichment ran, nothing to show" — stops skeleton.
+            return r.unavailable || !r.summary ? { ...m, ai: {} } : { ...m, ai: r };
+          }),
         );
       })
       .catch(() => {
-        // silent failure — UI continues to show messages without AI
+        // Network failure — stop skeletons, render mail cleanly without AI.
+        setMessages((curr) => curr.map((m) => (m.ai ? m : { ...m, ai: {} })));
       });
 
     return () => {

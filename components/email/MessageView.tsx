@@ -68,32 +68,34 @@ export function MessageView({ message: initial }: { message: EmailMessage }) {
 
   return (
     <article className="flex flex-col">
-      <header className="sticky top-[57px] z-10 flex items-center gap-1 border-b border-border bg-bg/85 px-2 py-2.5 backdrop-blur-md sm:px-4">
-        <Link
-          href="/inbox"
-          aria-label="Back to inbox"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full text-fg transition-colors hover:bg-surface-2"
-        >
-          <ArrowLeft size={18} />
-        </Link>
-        <div className="flex items-center">
-          <IconButton icon={<Archive size={18} />} label="Archive" onClick={onArchive} disabled={busy !== null} />
-          <IconButton icon={<Trash2 size={18} />} label="Delete" onClick={onTrash} disabled={busy !== null} />
-          <IconButton
-            icon={<Star size={18} className={message.starred ? "fill-amber text-amber" : ""} />}
-            label={message.starred ? "Unstar" : "Star"}
-            onClick={onStar}
-            disabled={busy !== null}
-          />
-        </div>
-        <div className="ml-auto">
-          <Button size="sm" variant="primary" onClick={() => setShowDraft((v) => !v)} disabled={busy !== null}>
-            <Sparkles size={14} /> Draft reply
-          </Button>
+      <header className="sticky top-[57px] z-10 border-b border-border bg-bg/85 backdrop-blur-md">
+        <div className="mx-auto flex max-w-3xl items-center gap-1 px-2 py-2.5 sm:px-4">
+          <Link
+            href="/inbox"
+            aria-label="Back to inbox"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-fg transition-colors hover:bg-surface-2"
+          >
+            <ArrowLeft size={18} />
+          </Link>
+          <div className="flex items-center">
+            <IconButton icon={<Archive size={18} />} label="Archive" onClick={onArchive} disabled={busy !== null} />
+            <IconButton icon={<Trash2 size={18} />} label="Delete" onClick={onTrash} disabled={busy !== null} />
+            <IconButton
+              icon={<Star size={18} className={message.starred ? "fill-amber text-amber" : ""} />}
+              label={message.starred ? "Unstar" : "Star"}
+              onClick={onStar}
+              disabled={busy !== null}
+            />
+          </div>
+          <div className="ml-auto">
+            <Button size="sm" variant="primary" onClick={() => setShowDraft((v) => !v)} disabled={busy !== null}>
+              <Sparkles size={14} /> Draft reply
+            </Button>
+          </div>
         </div>
       </header>
 
-      <div className="px-4 py-6 sm:px-8 sm:py-8">
+      <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
         <h1 className="font-display text-2xl font-semibold leading-tight tracking-tight text-fg sm:text-[28px]">
           {message.subject}
         </h1>
@@ -189,21 +191,28 @@ function IconButton({
 
 function Body({ html, text }: { html?: string; text?: string }) {
   if (html) {
+    // Email HTML assumes a light background — render it inside a contained
+    // "letter" card with a fixed light surface so it looks intentional on any
+    // app theme, instead of a full-bleed white slab.
     return (
-      <div
-        className={cn(
-          "mt-7 max-w-none text-[15px] leading-relaxed text-fg",
-          "[&_a]:text-accent [&_a]:underline [&_a]:underline-offset-2",
-          "[&_p]:my-3 [&_h1]:font-display [&_h2]:font-display [&_h3]:font-display",
-          "[&_img]:rounded-lg [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-fg-muted",
-        )}
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      <div className="mt-7 overflow-hidden rounded-2xl border border-border bg-white">
+        <div
+          className={cn(
+            "max-w-none px-5 py-5 text-[15px] leading-relaxed text-zinc-900",
+            "[&_a]:text-accent [&_a]:underline [&_a]:underline-offset-2",
+            "[&_p]:my-3 [&_img]:max-w-full [&_img]:rounded-lg",
+            "[&_blockquote]:border-l-2 [&_blockquote]:border-zinc-200 [&_blockquote]:pl-4 [&_blockquote]:text-zinc-500",
+          )}
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      </div>
     );
   }
   return (
-    <pre className="mt-7 whitespace-pre-wrap font-sans text-[15px] leading-relaxed text-fg">
-      {text}
-    </pre>
+    <div className="mt-7 rounded-2xl border border-border bg-surface px-5 py-5">
+      <pre className="whitespace-pre-wrap font-sans text-[15px] leading-relaxed text-fg">
+        {text}
+      </pre>
+    </div>
   );
 }

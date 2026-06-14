@@ -22,14 +22,11 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
+  // No key configured → AI unavailable. Return empty markers so the UI
+  // degrades cleanly (no card, no fake summary, never an error string).
   if (!hasAnthropicKey()) {
     return NextResponse.json({
-      results: Object.fromEntries(
-        parsed.data.items.map((i) => [
-          i.id,
-          { summary: `${i.from}: ${i.subject}`, priority: "other", priorityReason: "ai-disabled" },
-        ]),
-      ),
+      results: Object.fromEntries(parsed.data.items.map((i) => [i.id, { unavailable: true }])),
     });
   }
 
@@ -42,15 +39,10 @@ export async function POST(req: Request) {
           prioritize({ from: i.from, subject: i.subject, snippet: i.snippet }),
         ]);
         return [i.id, { summary, priority: p.priority, priorityReason: p.reason }] as const;
-      } catch (err) {
-        return [
-          i.id,
-          {
-            summary: i.snippet.slice(0, 80),
-            priority: "other" as const,
-            priorityReason: err instanceof Error ? err.message.slice(0, 50) : "err",
-          },
-        ] as const;
+      } catch {
+        // Never surface raw provider errors (e.g. billing/rate-limit 400s)
+        // to the client. Mark unavailable; the email renders without a card.
+        return [i.id, { unavailable: true }] as const;
       }
     }),
   );
