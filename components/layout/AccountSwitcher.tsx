@@ -13,14 +13,24 @@ const PROVIDER_LABEL: Record<string, string> = {
   demo: "Demo",
 };
 
-export function AccountSwitcher({ accounts }: { accounts: Account[] }) {
+export function AccountSwitcher({
+  accounts,
+  variant = "bar",
+}: {
+  accounts: Account[];
+  variant?: "bar" | "sidebar";
+}) {
   const [open, setOpen] = useState(false);
 
   if (accounts.length === 0) {
     return (
       <a
         href="/login"
-        className="inline-flex h-10 items-center gap-1.5 rounded-full border border-border-strong bg-surface px-3 text-xs font-medium text-fg transition-colors hover:bg-surface-2"
+        className={
+          variant === "sidebar"
+            ? "flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+            : "inline-flex h-10 items-center gap-1.5 rounded-full border border-border-strong bg-surface px-3 text-xs font-medium text-fg transition-colors hover:bg-surface-2"
+        }
       >
         <Plus size={14} /> Add account
       </a>
@@ -28,6 +38,66 @@ export function AccountSwitcher({ accounts }: { accounts: Account[] }) {
   }
 
   const current = accounts[0];
+
+  // Sidebar variant: full-width block that opens its menu upward.
+  if (variant === "sidebar") {
+    return (
+      <div className="relative">
+        {open && (
+          <>
+            <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} aria-hidden />
+            <div
+              role="menu"
+              className="fade-in absolute bottom-full left-0 z-40 mb-2 w-full overflow-hidden rounded-2xl border border-border bg-surface p-1.5 shadow-[0_24px_60px_-30px_rgb(var(--shadow-color)/0.4)]"
+            >
+              {accounts.map((a) => (
+                <div key={a.id} className="flex items-center gap-2.5 rounded-xl px-2.5 py-2">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent-soft text-[11px] font-semibold uppercase text-accent">
+                    {a.email[0]}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="truncate text-sm text-fg">{a.email}</div>
+                    <div className="text-[10px] uppercase tracking-wide text-fg-subtle">
+                      {PROVIDER_LABEL[a.provider] ?? a.provider}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <div className="my-1 h-px bg-border" />
+              <a
+                href="/login"
+                className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-fg transition-colors hover:bg-surface-2"
+              >
+                <Plus size={15} className="text-fg-muted" /> Add another account
+              </a>
+              <form action={signOutAction}>
+                <Button type="submit" variant="ghost" size="sm" className="w-full justify-start rounded-xl text-sm">
+                  <LogOut size={15} className="text-fg-muted" /> Sign out
+                </Button>
+              </form>
+            </div>
+          </>
+        )}
+        <button
+          onClick={() => setOpen((v) => !v)}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition-colors hover:bg-surface-2"
+        >
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent-soft text-[12px] font-semibold uppercase text-accent">
+            {current.email[0]}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium text-fg">{current.email}</span>
+            <span className="block text-[10px] uppercase tracking-wide text-fg-subtle">
+              {PROVIDER_LABEL[current.provider] ?? current.provider}
+            </span>
+          </span>
+          <ChevronDown size={14} className="shrink-0 text-fg-muted" />
+        </button>
+      </div>
+    );
+  }
   return (
     <div className="relative">
       <button

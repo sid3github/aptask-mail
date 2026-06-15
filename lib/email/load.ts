@@ -64,21 +64,28 @@ export async function resolveProviders(): Promise<LoadResult> {
   return { providers: out, accounts, isDemo: out.length === 0 };
 }
 
-export async function loadInbox(limit = 25): Promise<{
+export async function loadInbox(
+  limit = 25,
+  label = "INBOX",
+): Promise<{
   messages: EmailMessage[];
   accounts: AccountInfo[];
   isDemo: boolean;
 }> {
   const r = await resolveProviders();
   if (r.isDemo) {
+    const filtered =
+      label === "INBOX"
+        ? DEMO_MESSAGES
+        : DEMO_MESSAGES.filter((m) => m.labels.includes(label));
     return {
-      messages: DEMO_MESSAGES,
+      messages: filtered,
       accounts: [{ id: DEMO_ACCOUNT_ID, email: "inbox@inboxiq.app", provider: "demo" }],
       isDemo: true,
     };
   }
   const settled = await Promise.allSettled(
-    r.providers.map(({ provider }) => provider.listMessages({ limit })),
+    r.providers.map(({ provider }) => provider.listMessages({ limit, label })),
   );
   const merged: EmailMessage[] = [];
   for (const s of settled) {
