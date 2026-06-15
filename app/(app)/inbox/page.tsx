@@ -33,9 +33,9 @@ export default async function InboxPage({
         )}
       </div>
       {isDemo ? (
-        <EmailList messages={messages} />
+        <EmailList key={folder.label} messages={messages} />
       ) : (
-        <EmailListEnriched messages={messages} label={folder.label} />
+        <EmailListEnriched key={folder.label} messages={messages} label={folder.label} />
       )}
     </AppShell>
   );

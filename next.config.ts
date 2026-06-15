@@ -12,6 +12,9 @@ const withSerwist = withSerwistInit({
 const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "date-fns"],
+    // Always refetch dynamic routes on client navigation so switching folders
+    // (?label=) shows fresh data immediately instead of a cached payload.
+    staleTimes: { dynamic: 0, static: 0 },
   },
   serverExternalPackages: ["imapflow", "mailparser", "nodemailer"],
 };

@@ -73,7 +73,10 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-3xl flex-1">{children}</main>
+        {/* Centered on mobile/tablet; left-anchored next to the sidebar on desktop. */}
+        <main className="mx-auto w-full max-w-3xl flex-1 lg:mx-0 lg:pl-8 lg:pr-6">
+          {children}
+        </main>
       </div>
 
       {/* Mobile / tablet bottom nav */}
