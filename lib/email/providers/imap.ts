@@ -63,7 +63,15 @@ export class ImapProvider implements EmailProvider {
       secure: this.creds.secure,
       auth: { user: this.creds.user, pass: this.creds.pass },
       logger: false,
+      // Fail fast instead of hanging a serverless request on a dead connection.
+      connectionTimeout: 15000,
+      greetingTimeout: 10000,
+      socketTimeout: 30000,
     });
+    // CRITICAL: ImapFlow emits 'error' on socket timeouts/disconnects. Without a
+    // listener Node escalates it to an uncaughtException and crashes the server.
+    // Swallow it here; the awaited calls below reject and surface a ProviderError.
+    c.on("error", () => {});
     try {
       await c.connect();
       return await fn(c);

@@ -118,6 +118,7 @@ type FakeClient = {
   connect: ReturnType<typeof vi.fn>;
   logout: ReturnType<typeof vi.fn>;
   getMailboxLock: ReturnType<typeof vi.fn>;
+  on: ReturnType<typeof vi.fn>;
   mailbox: { exists: number };
   fetch: ReturnType<typeof vi.fn>;
   search: ReturnType<typeof vi.fn>;
@@ -139,6 +140,7 @@ function makeFakeClient(): FakeClient {
   return {
     connect: vi.fn(async () => {}),
     logout: vi.fn(async () => {}),
+    on: vi.fn(),
     getMailboxLock: vi.fn(async (name: string) => {
       if (!openableMailboxes.has(name)) throw new Error(`no mailbox ${name}`);
       fakeClient.mailbox = { exists: 0 };
