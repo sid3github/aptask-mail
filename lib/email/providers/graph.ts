@@ -94,6 +94,28 @@ export class GraphProvider implements EmailProvider {
 
   async listMessages(opts: ListOptions = {}): Promise<ListResult> {
     return this.run(async () => {
+      const label = opts.label ?? "INBOX";
+      // Map the normalized label to a Graph mailbox folder. Only INBOX, SENT and
+      // STARRED are servable; anything else returns empty (never fall back to inbox).
+      let folder: string;
+      let starredOnly = false;
+      switch (label) {
+        case "INBOX":
+          folder = "inbox";
+          break;
+        case "SENT":
+          folder = "sentitems";
+          break;
+        case "STARRED":
+          // Flagged messages live across folders; we scope to the inbox folder
+          // and filter to flagged items.
+          folder = "inbox";
+          starredOnly = true;
+          break;
+        default:
+          return { items: [] };
+      }
+
       const select = [
         "id",
         "subject",
@@ -108,8 +130,14 @@ export class GraphProvider implements EmailProvider {
         "conversationId",
         "categories",
       ].join(",");
-      let url = `/me/mailFolders/inbox/messages?$select=${select}&$top=${opts.limit ?? 25}&$orderby=receivedDateTime desc`;
-      if (opts.query) url += `&$search="${encodeURIComponent(opts.query)}"`;
+      let url = `/me/mailFolders/${folder}/messages?$select=${select}&$top=${opts.limit ?? 25}&$orderby=receivedDateTime desc`;
+      if (starredOnly) {
+        // Graph rejects combining $search with $filter, so for STARRED we prefer
+        // $filter and skip the free-text search.
+        url += `&$filter=${encodeURIComponent("flag/flagStatus eq 'flagged'")}`;
+      } else if (opts.query) {
+        url += `&$search="${encodeURIComponent(opts.query)}"`;
+      }
       const res = opts.cursor
         ? await this.c.api(opts.cursor).get()
         : await this.c.api(url).get();

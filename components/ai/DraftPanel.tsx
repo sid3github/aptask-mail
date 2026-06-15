@@ -93,6 +93,7 @@ export function DraftPanel({
       role="dialog"
       aria-label="AI draft reply"
       className="fade-up sticky bottom-0 z-20 border-t border-border bg-surface/95 px-4 py-4 backdrop-blur-md sm:px-8 sm:py-5"
+      style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
     >
       <div className="mx-auto max-w-3xl">
         <div className="flex items-center gap-2">

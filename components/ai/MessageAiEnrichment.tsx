@@ -10,7 +10,8 @@ type AiResult = {
   unavailable?: boolean;
 };
 
-const CACHE_KEY = "inboxiq:ai-cache:v1";
+// v2: v1 entries could contain raw provider error strings (pre-fix); bump to discard them.
+const CACHE_KEY = "inboxiq:ai-cache:v2";
 
 function readCache(): Record<string, AiResult> {
   if (typeof window === "undefined") return {};

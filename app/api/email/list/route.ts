@@ -5,7 +5,8 @@ import { loadInbox } from "@/lib/email/load";
 export const runtime = "nodejs";
 
 const QuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(50).optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+  label: z.enum(["INBOX", "STARRED", "SENT"]).optional(),
 });
 
 export async function GET(req: Request) {
@@ -15,7 +16,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
   try {
-    const r = await loadInbox(parsed.data.limit ?? 25);
+    const r = await loadInbox(parsed.data.limit ?? 25, parsed.data.label ?? "INBOX");
     return NextResponse.json({ items: r.messages, accounts: r.accounts, demo: r.isDemo });
   } catch (err) {
     return NextResponse.json(

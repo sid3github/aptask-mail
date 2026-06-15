@@ -18,7 +18,7 @@ export default async function InboxPage({
 }) {
   const { label } = await searchParams;
   const folder = FOLDERS[label ?? "INBOX"] ?? FOLDERS.INBOX;
-  const { messages, accounts, isDemo } = await loadInbox(25, folder.label);
+  const { messages, accounts, isDemo } = await loadInbox(50, folder.label);
 
   return (
     <AppShell accounts={accounts}>
@@ -35,7 +35,7 @@ export default async function InboxPage({
       {isDemo ? (
         <EmailList messages={messages} />
       ) : (
-        <EmailListEnriched messages={messages} />
+        <EmailListEnriched messages={messages} label={folder.label} />
       )}
     </AppShell>
   );

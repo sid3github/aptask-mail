@@ -187,7 +187,7 @@ export default function ImapLoginPage() {
           </details>
 
           {state.error && (
-            <div className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+            <div className="rounded-xl border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
               {state.error}
             </div>
           )}

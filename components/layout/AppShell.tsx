@@ -16,8 +16,8 @@ export function AppShell({
 }) {
   return (
     <div className="min-h-svh bg-bg">
-      {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-surface/40 px-3 py-5 md:flex">
+      {/* Desktop sidebar (lg+ so 768–1024 tablets keep the roomy single-column layout) */}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-surface/40 px-3 py-5 lg:flex">
         <Link href="/inbox" className="flex items-center gap-2 px-2">
           <span className="grid h-8 w-8 place-items-center rounded-xl bg-fg text-bg">
             <Sparkles size={14} />
@@ -47,10 +47,10 @@ export function AppShell({
       </aside>
 
       {/* Main column */}
-      <div className="flex min-h-svh flex-col pb-[68px] md:pb-0 md:pl-64">
-        <header className="sticky top-0 z-20 border-b border-border bg-bg/80 backdrop-blur-md">
-          <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
-            <Link href="/inbox" className="flex items-center gap-2 md:hidden">
+      <div className="flex min-h-svh flex-col pb-[68px] lg:pb-0 lg:pl-64">
+        <header className="sticky top-0 z-20 h-16 border-b border-border bg-bg/80 backdrop-blur-md">
+          <div className="flex h-full items-center gap-3 px-4 sm:px-6">
+            <Link href="/inbox" className="flex items-center gap-2 lg:hidden">
               <span className="grid h-8 w-8 place-items-center rounded-xl bg-fg text-bg">
                 <Sparkles size={14} />
               </span>
@@ -65,7 +65,7 @@ export function AppShell({
               <span className="truncate">Search mail</span>
             </Link>
 
-            <div className="md:hidden">
+            <div className="lg:hidden">
               <Suspense fallback={null}>
                 <AccountSwitcher accounts={accounts} />
               </Suspense>
@@ -76,10 +76,10 @@ export function AppShell({
         <main className="mx-auto w-full max-w-3xl flex-1">{children}</main>
       </div>
 
-      {/* Mobile bottom nav */}
+      {/* Mobile / tablet bottom nav */}
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-border bg-bg/90 backdrop-blur-md md:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-border bg-bg/90 backdrop-blur-md lg:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         <Suspense fallback={null}>

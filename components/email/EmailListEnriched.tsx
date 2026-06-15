@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AiPriority, EmailMessage } from "@/lib/email/providers/types";
 import { EmailList } from "./EmailList";
+import { Button } from "@/components/ui/button";
 
 type AiResult = {
   summary?: string;
@@ -10,7 +11,10 @@ type AiResult = {
   unavailable?: boolean;
 };
 
-const CACHE_KEY = "inboxiq:ai-cache:v1";
+// v2: v1 entries could contain raw provider error strings (pre-fix); bump to discard them.
+const CACHE_KEY = "inboxiq:ai-cache:v2";
+const INITIAL_LIMIT = 50; // must match the server-side loadInbox limit on the inbox page
+const PAGE = 25; // "Load more" increment
 
 function readCache(): Record<string, AiResult> {
   if (typeof window === "undefined") return {};
@@ -30,23 +34,41 @@ function writeCache(next: Record<string, AiResult>) {
   }
 }
 
+// Apply any cached AI result (real summaries only) to a fresh message list.
+function applyCache(list: EmailMessage[]): EmailMessage[] {
+  const cache = readCache();
+  return list.map((m) =>
+    m.ai || !cache[m.id]?.summary ? m : { ...m, ai: cache[m.id] },
+  );
+}
+
 export function EmailListEnriched({
   messages: initial,
+  label = "INBOX",
   enabled = true,
 }: {
   messages: EmailMessage[];
+  label?: string;
   enabled?: boolean;
 }) {
-  const [messages, setMessages] = useState<EmailMessage[]>(() => {
-    const cache = readCache();
-    return initial.map((m) => (m.ai || !cache[m.id] ? m : { ...m, ai: cache[m.id] }));
-  });
+  const [messages, setMessages] = useState<EmailMessage[]>(() => applyCache(initial));
+  const [limit, setLimit] = useState(Math.max(INITIAL_LIMIT, initial.length));
+  const [canMore, setCanMore] = useState(initial.length >= INITIAL_LIMIT);
+  const [loadingMore, setLoadingMore] = useState(false);
+  // Track which ids we've already sent for enrichment so we don't re-request.
+  const requested = useRef<Set<string>>(new Set());
+
+  const idKey = messages.map((m) => m.id).join(",");
 
   useEffect(() => {
     if (!enabled) return;
     const cache = readCache();
-    const need = messages.filter((m) => !m.ai && !cache[m.id]);
+
+    const need = messages.filter(
+      (m) => !m.ai && !cache[m.id] && !requested.current.has(m.id),
+    );
     if (need.length === 0) return;
+    need.forEach((m) => requested.current.add(m.id));
 
     let cancelled = false;
     const payload = need.map((m) => ({
@@ -64,7 +86,6 @@ export function EmailListEnriched({
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((j: { results: Record<string, AiResult> }) => {
         if (cancelled) return;
-        // Cache only real successes; let unavailable ones retry on reload.
         const real = Object.fromEntries(
           Object.entries(j.results).filter(([, v]) => v && !v.unavailable && v.summary),
         );
@@ -74,22 +95,54 @@ export function EmailListEnriched({
             if (m.ai) return m;
             const r = j.results[m.id];
             if (!r) return m;
-            // Empty object = "enrichment ran, nothing to show" — stops skeleton.
             return r.unavailable || !r.summary ? { ...m, ai: {} } : { ...m, ai: r };
           }),
         );
       })
       .catch(() => {
+        if (cancelled) return;
         // Network failure — stop skeletons, render mail cleanly without AI.
-        setMessages((curr) => curr.map((m) => (m.ai ? m : { ...m, ai: {} })));
+        setMessages((curr) =>
+          curr.map((m) => (m.ai ? m : need.some((n) => n.id === m.id) ? { ...m, ai: {} } : m)),
+        );
       });
 
     return () => {
       cancelled = true;
     };
-    // We deliberately depend on the initial message IDs only, not state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initial.map((m) => m.id).join(","), enabled]);
+  }, [idKey, enabled]);
 
-  return <EmailList messages={messages} />;
+  async function loadMore() {
+    setLoadingMore(true);
+    const next = limit + PAGE;
+    try {
+      const r = await fetch(
+        `/api/email/list?limit=${next}&label=${encodeURIComponent(label)}`,
+      );
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const j = (await r.json()) as { items: EmailMessage[] };
+      const items = j.items ?? [];
+      setMessages(applyCache(items));
+      setLimit(next);
+      setCanMore(items.length >= next);
+    } catch {
+      setCanMore(false);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  return (
+    <>
+      <EmailList messages={messages} />
+      {canMore && (
+        <div className="flex justify-center px-4 py-6">
+          <Button variant="secondary" size="sm" onClick={loadMore} disabled={loadingMore}>
+            {loadingMore ? "Loading…" : "Load more"}
+          </Button>
+        </div>
+      )}
+    </>
+  );
 }

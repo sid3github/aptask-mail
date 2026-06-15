@@ -1,4 +1,4 @@
-import { ImapFlow } from "imapflow";
+import { ImapFlow, type FetchMessageObject } from "imapflow";
 import { simpleParser } from "mailparser";
 import nodemailer from "nodemailer";
 import type {
@@ -22,6 +22,14 @@ export type ImapCredentials = {
   smtpSecure: boolean;
 };
 
+// Common server-specific names for the Sent mailbox, in preference order.
+const SENT_MAILBOX_CANDIDATES = [
+  "Sent",
+  "Sent Messages",
+  "[Gmail]/Sent Mail",
+  "Sent Items",
+];
+
 export class ImapProvider implements EmailProvider {
   readonly id = "imap" as const;
 
@@ -29,6 +37,24 @@ export class ImapProvider implements EmailProvider {
     public accountId: string,
     private creds: ImapCredentials,
   ) {}
+
+  /**
+   * Acquire a mailbox lock for one of the candidate names, returning the first
+   * that opens. Returns null if none can be opened.
+   */
+  private async lockFirstAvailable(
+    c: ImapFlow,
+    candidates: string[],
+  ): Promise<Awaited<ReturnType<ImapFlow["getMailboxLock"]>> | null> {
+    for (const name of candidates) {
+      try {
+        return await c.getMailboxLock(name);
+      } catch {
+        // try the next candidate
+      }
+    }
+    return null;
+  }
 
   private async withClient<T>(fn: (c: ImapFlow) => Promise<T>): Promise<T> {
     const c = new ImapFlow({
@@ -53,15 +79,89 @@ export class ImapProvider implements EmailProvider {
     }
   }
 
+  /**
+   * Build a canonical message from a fetched IMAP row. `boxLabel` is the
+   * normalized label for the mailbox being read (e.g. INBOX, SENT) so the row
+   * carries the correct folder label.
+   */
+  private rowToMessage(msg: FetchMessageObject, boxLabel: string): EmailMessage {
+    const env = msg.envelope;
+    const flags = Array.from(msg.flags ?? []);
+    const unread = !flags.includes("\\Seen");
+    const starred = flags.includes("\\Flagged");
+    return {
+      id: `imap:${this.accountId}:${msg.uid}`,
+      accountId: this.accountId,
+      threadId: `imap:${this.accountId}:${msg.uid}`,
+      from: {
+        name: env?.from?.[0]?.name,
+        email: env?.from?.[0]?.address ?? "unknown",
+      },
+      to: (env?.to ?? []).map((a) => ({ name: a.name, email: a.address ?? "" })),
+      cc: (env?.cc ?? []).map((a) => ({ name: a.name, email: a.address ?? "" })),
+      subject: env?.subject || "(no subject)",
+      snippet: "",
+      date: new Date(msg.internalDate ?? Date.now()).toISOString(),
+      unread,
+      starred,
+      labels: [boxLabel, ...(unread ? ["UNREAD"] : []), ...(starred ? ["STARRED"] : [])],
+      hasAttachments: false,
+    };
+  }
+
   async listMessages(opts: ListOptions = {}): Promise<ListResult> {
+    const label = opts.label ?? "INBOX";
+    // Only INBOX, SENT and STARRED are servable over IMAP; never fall back to
+    // INBOX for any other label.
+    if (label !== "INBOX" && label !== "SENT" && label !== "STARRED") {
+      return { items: [] };
+    }
+
     return this.withClient(async (c) => {
-      const lock = await c.getMailboxLock("INBOX");
+      const limit = opts.limit ?? 25;
+
+      // STARRED: return only \Flagged messages from the INBOX.
+      if (label === "STARRED") {
+        const lock = await c.getMailboxLock("INBOX");
+        try {
+          const uids = (await c.search({ flagged: true }, { uid: true })) || [];
+          if (uids.length === 0) return { items: [] };
+          // Newest first; cap to the requested page size.
+          const take = uids.slice(-limit).reverse();
+          const items: EmailMessage[] = [];
+          for await (const msg of c.fetch(
+            take,
+            {
+              envelope: true,
+              flags: true,
+              uid: true,
+              internalDate: true,
+              source: false,
+              bodyStructure: false,
+            },
+            { uid: true },
+          )) {
+            items.push(this.rowToMessage(msg, "STARRED"));
+          }
+          items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+          return { items };
+        } finally {
+          lock.release();
+        }
+      }
+
+      // INBOX / SENT: sequence-based paginated read of the relevant mailbox.
+      const lock =
+        label === "SENT"
+          ? await this.lockFirstAvailable(c, SENT_MAILBOX_CANDIDATES)
+          : await c.getMailboxLock("INBOX");
+      // A SENT mailbox may not exist on this server — return empty, not INBOX.
+      if (!lock) return { items: [] };
       try {
         const mailbox = c.mailbox && typeof c.mailbox === "object" ? c.mailbox : null;
         const total = mailbox && "exists" in mailbox ? Number(mailbox.exists) : 0;
         if (total === 0) return { items: [] };
 
-        const limit = opts.limit ?? 25;
         const startCursor = opts.cursor ? Number(opts.cursor) : total;
         const from = Math.max(1, startCursor - limit + 1);
         const to = startCursor;
@@ -74,28 +174,7 @@ export class ImapProvider implements EmailProvider {
           source: false,
           bodyStructure: false,
         })) {
-          const env = msg.envelope;
-          const flags = Array.from(msg.flags ?? []);
-          const unread = !flags.includes("\\Seen");
-          const starred = flags.includes("\\Flagged");
-          items.push({
-            id: `imap:${this.accountId}:${msg.uid}`,
-            accountId: this.accountId,
-            threadId: `imap:${this.accountId}:${msg.uid}`,
-            from: {
-              name: env?.from?.[0]?.name,
-              email: env?.from?.[0]?.address ?? "unknown",
-            },
-            to: (env?.to ?? []).map((a) => ({ name: a.name, email: a.address ?? "" })),
-            cc: (env?.cc ?? []).map((a) => ({ name: a.name, email: a.address ?? "" })),
-            subject: env?.subject || "(no subject)",
-            snippet: "",
-            date: new Date(msg.internalDate ?? Date.now()).toISOString(),
-            unread,
-            starred,
-            labels: ["INBOX", ...(unread ? ["UNREAD"] : []), ...(starred ? ["STARRED"] : [])],
-            hasAttachments: false,
-          });
+          items.push(this.rowToMessage(msg, label));
         }
         const nextCursor = from > 1 ? String(from - 1) : undefined;
         return { items: items.reverse(), nextCursor };

@@ -4,7 +4,7 @@ import { EmailRow } from "./EmailRow";
 export function EmailList({ messages }: { messages: EmailMessage[] }) {
   if (messages.length === 0) {
     return (
-      <div className="flex h-[60vh] flex-col items-center justify-center px-6 text-center">
+      <div className="flex min-h-[55vh] flex-col items-center justify-center px-6 py-16 text-center">
         <div className="grid h-14 w-14 place-items-center rounded-2xl bg-surface-2 text-2xl">
           🪄
         </div>

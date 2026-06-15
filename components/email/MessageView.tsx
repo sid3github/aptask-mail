@@ -68,7 +68,7 @@ export function MessageView({ message: initial }: { message: EmailMessage }) {
 
   return (
     <article className="flex flex-col">
-      <header className="sticky top-[57px] z-10 border-b border-border bg-bg/85 backdrop-blur-md">
+      <header className="sticky top-16 z-10 border-b border-border bg-bg/85 backdrop-blur-md">
         <div className="mx-auto flex max-w-3xl items-center gap-1 px-2 py-2.5 sm:px-4">
           <Link
             href="/inbox"
