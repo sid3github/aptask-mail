@@ -67,9 +67,14 @@ export function MessageView({ message: initial }: { message: EmailMessage }) {
   }
 
   return (
-    <article className="flex flex-col">
+    <article
+      className={cn(
+        "flex flex-col transition-[padding] duration-200",
+        showDraft && "lg:pr-[440px]",
+      )}
+    >
       <header className="sticky top-16 z-10 border-b border-border bg-bg/85 backdrop-blur-md">
-        <div className="mx-auto flex max-w-3xl items-center gap-1 px-2 py-2.5 sm:px-4">
+        <div className="flex max-w-3xl items-center gap-1 px-2 py-2.5 sm:px-4">
           <Link
             href="/inbox"
             aria-label="Back to inbox"
@@ -95,7 +100,7 @@ export function MessageView({ message: initial }: { message: EmailMessage }) {
         </div>
       </header>
 
-      <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
+      <div className="max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
         <h1 className="font-display text-2xl font-semibold leading-tight tracking-tight text-fg sm:text-[28px]">
           {message.subject}
         </h1>

@@ -10,6 +10,8 @@ const withSerwist = withSerwistInit({
 });
 
 const nextConfig: NextConfig = {
+  // Hide the dev-only overlay badge — it floats over the bottom-left mobile nav.
+  devIndicators: false,
   experimental: {
     optimizePackageImports: ["lucide-react", "date-fns"],
     // Always refetch dynamic routes on client navigation so switching folders

@@ -16,6 +16,13 @@ const CACHE_KEY = "inboxiq:ai-cache:v2";
 const INITIAL_LIMIT = 50; // must match the server-side loadInbox limit on the inbox page
 const PAGE = 25; // "Load more" increment
 
+// Session-scoped verdict cache. Persists across client navigations (folder
+// switches remount the list, but this module singleton survives), so each
+// message is enriched/skeletoned at most ONCE per session — switching folders
+// never re-triggers a loading shimmer for messages we've already resolved.
+// Holds both real summaries and "unavailable" ({}), and is cleared on full reload.
+const sessionVerdict = new Map<string, AiResult>();
+
 function readCache(): Record<string, AiResult> {
   if (typeof window === "undefined") return {};
   try {
@@ -34,12 +41,16 @@ function writeCache(next: Record<string, AiResult>) {
   }
 }
 
-// Apply any cached AI result (real summaries only) to a fresh message list.
+// Seed each message's ai from: localStorage real summary → session verdict
+// (incl. "unavailable") → otherwise undefined (will skeleton + enrich once).
 function applyCache(list: EmailMessage[]): EmailMessage[] {
   const cache = readCache();
-  return list.map((m) =>
-    m.ai || !cache[m.id]?.summary ? m : { ...m, ai: cache[m.id] },
-  );
+  return list.map((m) => {
+    if (m.ai) return m;
+    if (cache[m.id]?.summary) return { ...m, ai: cache[m.id] };
+    if (sessionVerdict.has(m.id)) return { ...m, ai: sessionVerdict.get(m.id)! };
+    return m;
+  });
 }
 
 export function EmailListEnriched({
@@ -55,7 +66,6 @@ export function EmailListEnriched({
   const [limit, setLimit] = useState(Math.max(INITIAL_LIMIT, initial.length));
   const [canMore, setCanMore] = useState(initial.length >= INITIAL_LIMIT);
   const [loadingMore, setLoadingMore] = useState(false);
-  // Track which ids we've already sent for enrichment so we don't re-request.
   const requested = useRef<Set<string>>(new Set());
 
   const idKey = messages.map((m) => m.id).join(",");
@@ -65,7 +75,11 @@ export function EmailListEnriched({
     const cache = readCache();
 
     const need = messages.filter(
-      (m) => !m.ai && !cache[m.id] && !requested.current.has(m.id),
+      (m) =>
+        !m.ai &&
+        !cache[m.id] &&
+        !sessionVerdict.has(m.id) &&
+        !requested.current.has(m.id),
     );
     if (need.length === 0) return;
     need.forEach((m) => requested.current.add(m.id));
@@ -90,6 +104,11 @@ export function EmailListEnriched({
           Object.entries(j.results).filter(([, v]) => v && !v.unavailable && v.summary),
         );
         writeCache({ ...cache, ...real });
+        // Record every verdict (real or unavailable) for the session.
+        for (const m of need) {
+          const r = j.results[m.id];
+          sessionVerdict.set(m.id, r && !r.unavailable && r.summary ? r : {});
+        }
         setMessages((curr) =>
           curr.map((m) => {
             if (m.ai) return m;
@@ -101,7 +120,8 @@ export function EmailListEnriched({
       })
       .catch(() => {
         if (cancelled) return;
-        // Network failure — stop skeletons, render mail cleanly without AI.
+        // Network failure — mark attempted as empty so skeletons stop; do not
+        // record in sessionVerdict so a later mount can retry.
         setMessages((curr) =>
           curr.map((m) => (m.ai ? m : need.some((n) => n.id === m.id) ? { ...m, ai: {} } : m)),
         );

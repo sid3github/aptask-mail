@@ -92,10 +92,16 @@ export function DraftPanel({
     <section
       role="dialog"
       aria-label="AI draft reply"
-      className="fade-up sticky bottom-0 z-20 border-t border-border bg-surface/95 px-4 py-4 backdrop-blur-md sm:px-8 sm:py-5"
+      className={cn(
+        "fade-up z-30 border-border bg-surface/98 backdrop-blur-md",
+        // Mobile / tablet: bottom sheet
+        "fixed inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto border-t px-4 py-4 sm:px-6",
+        // Desktop: right-side drawer filling the empty space beside the reading column
+        "lg:left-auto lg:right-0 lg:top-16 lg:bottom-0 lg:w-[440px] lg:max-h-none lg:border-l lg:border-t-0 lg:px-6 lg:py-6",
+      )}
       style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
     >
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-3xl lg:mx-0 lg:max-w-none">
         <div className="flex items-center gap-2">
           <Sparkles size={15} className="text-accent" />
           <h2 className="font-display text-sm font-semibold text-fg">AI draft reply</h2>
