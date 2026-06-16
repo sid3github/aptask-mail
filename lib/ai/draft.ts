@@ -5,7 +5,9 @@ import { DRAFT_SYSTEM } from "./prompts";
 export const DraftInputSchema = z.object({
   previousFrom: z.string(),
   previousSubject: z.string(),
-  previousBody: z.string().max(8000),
+  // Long quoted emails must never 400. Accept any string and clamp it so a
+  // huge forwarded thread degrades gracefully instead of erroring.
+  previousBody: z.string().transform((s) => s.slice(0, 8000)),
   intent: z.string().min(1).max(500),
   tone: z.enum(["formal", "casual", "short"]).default("casual"),
 });

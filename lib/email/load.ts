@@ -95,6 +95,48 @@ export async function loadInbox(
   return { messages: merged.slice(0, limit), accounts: r.accounts, isDemo: false };
 }
 
+export async function loadSearch(
+  q: string,
+  limit = 25,
+): Promise<{
+  messages: EmailMessage[];
+  accounts: AccountInfo[];
+  isDemo: boolean;
+}> {
+  const r = await resolveProviders();
+  if (r.isDemo) {
+    const needle = q.trim().toLowerCase();
+    const matched = needle
+      ? DEMO_MESSAGES.filter((m) => {
+          const haystack = [
+            m.from.name ?? "",
+            m.from.email,
+            m.subject,
+            m.snippet,
+            m.ai?.summary ?? "",
+          ]
+            .join(" ")
+            .toLowerCase();
+          return haystack.includes(needle);
+        })
+      : [];
+    return {
+      messages: matched.slice(0, limit),
+      accounts: [{ id: DEMO_ACCOUNT_ID, email: "inbox@inboxiq.app", provider: "demo" }],
+      isDemo: true,
+    };
+  }
+  const settled = await Promise.allSettled(
+    r.providers.map(({ provider }) => provider.search(q, limit)),
+  );
+  const merged: EmailMessage[] = [];
+  for (const s of settled) {
+    if (s.status === "fulfilled") merged.push(...s.value);
+  }
+  merged.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  return { messages: merged.slice(0, limit), accounts: r.accounts, isDemo: false };
+}
+
 export async function providerForMessageId(
   id: string,
 ): Promise<EmailProvider | null> {

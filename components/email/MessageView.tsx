@@ -1,7 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, Star, Trash2, Sparkles, ArrowLeft } from "lucide-react";
+import { Archive, Star, Trash2, Sparkles, ArrowLeft, Reply, Forward, Check } from "lucide-react";
 import Link from "next/link";
 import type { EmailMessage } from "@/lib/email/providers/types";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ export function MessageView({ message: initial }: { message: EmailMessage }) {
   const [showDraft, setShowDraft] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const router = useRouter();
   const [, startTransition] = useTransition();
 
@@ -29,7 +30,12 @@ export function MessageView({ message: initial }: { message: EmailMessage }) {
     ? `${message.from.name} <${message.from.email}>`
     : message.from.email;
 
-  async function modify(opLabel: string, body: Record<string, unknown>, after: "back" | "stay") {
+  async function modify(
+    opLabel: string,
+    body: Record<string, unknown>,
+    after: "back" | "stay",
+    doneLabel?: string,
+  ) {
     setBusy(opLabel);
     setError(null);
     try {
@@ -40,30 +46,58 @@ export function MessageView({ message: initial }: { message: EmailMessage }) {
       });
       if (!r.ok) throw new Error(await r.text());
       if (after === "back") {
-        startTransition(() => {
-          router.push("/inbox");
-          router.refresh();
-        });
+        // Brief confirmation so the action doesn't feel like an abrupt jump.
+        if (doneLabel) setToast(doneLabel);
+        setTimeout(() => {
+          startTransition(() => {
+            router.push("/inbox");
+            router.refresh();
+          });
+        }, 600);
       } else {
         startTransition(() => router.refresh());
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Action failed");
-    } finally {
       setBusy(null);
     }
+    if (after !== "back") setBusy(null);
   }
 
   function onArchive() {
-    void modify("archive", { type: "archive" }, "back");
+    void modify("archive", { type: "archive" }, "back", "Archived");
   }
   function onTrash() {
-    void modify("trash", { type: "trash" }, "back");
+    void modify("trash", { type: "trash" }, "back", "Moved to Trash");
   }
   function onStar() {
     const next = !message.starred;
     setMessage((m) => ({ ...m, starred: next }));
     void modify("star", { type: "star", starred: next }, "stay");
+  }
+
+  function onReply() {
+    const params = new URLSearchParams({
+      to: message.from.email,
+      subject: message.subject.startsWith("Re:") ? message.subject : `Re: ${message.subject}`,
+    });
+    router.push(`/compose?${params.toString()}`);
+  }
+
+  function onForward() {
+    const original = message.bodyText ?? message.snippet ?? "";
+    const quoted = [
+      "---------- Forwarded message ----------",
+      `From: ${fromLabel}`,
+      `Subject: ${message.subject}`,
+      "",
+      original,
+    ].join("\n");
+    const params = new URLSearchParams({
+      subject: message.subject.startsWith("Fwd:") ? message.subject : `Fwd: ${message.subject}`,
+      body: quoted,
+    });
+    router.push(`/compose?${params.toString()}`);
   }
 
   return (
@@ -92,12 +126,28 @@ export function MessageView({ message: initial }: { message: EmailMessage }) {
               disabled={busy !== null}
             />
           </div>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <Button size="sm" variant="secondary" onClick={onReply} disabled={busy !== null}>
+              <Reply size={14} /> Reply
+            </Button>
+            <Button size="sm" variant="secondary" onClick={onForward} disabled={busy !== null}>
+              <Forward size={14} /> <span className="hidden sm:inline">Forward</span>
+            </Button>
             <Button size="sm" variant="primary" onClick={() => setShowDraft((v) => !v)} disabled={busy !== null}>
-              <Sparkles size={14} /> Draft reply
+              <Sparkles size={14} /> <span className="hidden sm:inline">Draft reply</span>
+              <span className="sm:hidden">Draft</span>
             </Button>
           </div>
         </div>
+        {toast && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="fade-in flex items-center gap-2 border-t border-accent/20 bg-accent-soft px-4 py-2 text-xs font-medium text-accent sm:px-4"
+          >
+            <Check size={14} /> {toast}
+          </div>
+        )}
       </header>
 
       <div className="max-w-3xl px-4 py-6 sm:px-6 sm:py-8">

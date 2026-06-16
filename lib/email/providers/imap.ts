@@ -10,6 +10,7 @@ import type {
   ModifyOp,
 } from "./types";
 import { ProviderError } from "./types";
+import { sanitizeHtml } from "./sanitize";
 
 export type ImapCredentials = {
   host: string;
@@ -52,6 +53,41 @@ export class ImapProvider implements EmailProvider {
       } catch {
         // try the next candidate
       }
+    }
+    return null;
+  }
+
+  /**
+   * Locate the mailbox that actually contains `uid`. A message opened from the
+   * Sent folder encodes the account + uid but not the mailbox, so a plain
+   * INBOX lock can miss it (or hit a different message with the same uid in a
+   * different mailbox). Try INBOX first; if the uid is absent there, fall back
+   * to the Sent mailbox candidates. Returns an open lock for the matching
+   * mailbox, or null if the uid is found nowhere.
+   */
+  private async lockMailboxForUid(
+    c: ImapFlow,
+    uid: number,
+  ): Promise<Awaited<ReturnType<ImapFlow["getMailboxLock"]>> | null> {
+    const candidates = ["INBOX", ...SENT_MAILBOX_CANDIDATES];
+    for (const name of candidates) {
+      let lock: Awaited<ReturnType<ImapFlow["getMailboxLock"]>>;
+      try {
+        lock = await c.getMailboxLock(name);
+      } catch {
+        // Mailbox does not exist on this server — try the next candidate.
+        continue;
+      }
+      try {
+        const found = (await c.search({ uid: String(uid) }, { uid: true })) || [];
+        if (found.includes(uid)) {
+          return lock;
+        }
+      } catch {
+        // Search failed in this mailbox; treat as a miss and move on.
+      }
+      // Not here — release and try the next candidate.
+      lock.release();
     }
     return null;
   }
@@ -195,7 +231,11 @@ export class ImapProvider implements EmailProvider {
   async getMessage(id: string): Promise<EmailMessage> {
     return this.withClient(async (c) => {
       const uid = Number(id.split(":").pop());
-      const lock = await c.getMailboxLock("INBOX");
+      // Resolve the mailbox that holds this uid (INBOX, else Sent candidates).
+      const lock = await this.lockMailboxForUid(c, uid);
+      if (!lock) {
+        throw new ProviderError("imap", "NOT_FOUND", `Message ${id} not found in INBOX or Sent`);
+      }
       try {
         const { content } = await c.download(String(uid), undefined, { uid: true });
         const parsed = await simpleParser(content);
@@ -214,7 +254,7 @@ export class ImapProvider implements EmailProvider {
           to: toAddrs.map((a) => ({ name: a.name, email: a.address ?? "" })),
           subject: parsed.subject || "(no subject)",
           snippet: (parsed.text ?? "").slice(0, 140),
-          bodyHtml: typeof parsed.html === "string" ? parsed.html : undefined,
+          bodyHtml: sanitizeHtml(typeof parsed.html === "string" ? parsed.html : undefined),
           bodyText: parsed.text ?? undefined,
           date: (parsed.date ?? new Date()).toISOString(),
           unread: false,
@@ -252,7 +292,13 @@ export class ImapProvider implements EmailProvider {
   async modifyMessage(id: string, op: ModifyOp): Promise<void> {
     return this.withClient(async (c) => {
       const uid = id.split(":").pop()!;
-      const lock = await c.getMailboxLock("INBOX");
+      // Operate on the mailbox that actually holds this uid (INBOX, else Sent
+      // candidates) so a message opened from Sent isn't acted on by uid in the
+      // wrong mailbox.
+      const lock = await this.lockMailboxForUid(c, Number(uid));
+      if (!lock) {
+        throw new ProviderError("imap", "NOT_FOUND", `Message ${id} not found in INBOX or Sent`);
+      }
       try {
         switch (op.type) {
           case "markRead":

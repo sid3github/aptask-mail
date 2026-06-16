@@ -1,8 +1,21 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { resolveProviders } from "@/lib/email/load";
+import { auth } from "@/lib/auth/config";
+import { readImapAccount } from "@/lib/auth/imap-session";
 
 export const runtime = "nodejs";
+
+// Reject unauthenticated callers in production. Allowed when: an Auth.js
+// session exists, OR an IMAP account cookie exists, OR we're outside
+// production (local demo, which short-circuits to a fake send).
+async function isAuthorized(): Promise<boolean> {
+  if (process.env.NODE_ENV !== "production") return true;
+  const session = await auth();
+  if (session) return true;
+  const imap = await readImapAccount();
+  return imap !== null;
+}
 
 const AddressSchema = z.object({
   email: z.string().email(),
@@ -22,6 +35,9 @@ const SendSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  if (!(await isAuthorized())) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
   const body = await req.json().catch(() => null);
   const parsed = SendSchema.safeParse(body);
   if (!parsed.success) {

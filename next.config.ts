@@ -18,7 +18,35 @@ const nextConfig: NextConfig = {
     // (?label=) shows fresh data immediately instead of a cached payload.
     staleTimes: { dynamic: 0, static: 0 },
   },
-  serverExternalPackages: ["imapflow", "mailparser", "nodemailer"],
+  // jsdom backs server-side DOMPurify HTML sanitization; keep it (and the other
+  // heavy server-only deps) out of the webpack bundle.
+  serverExternalPackages: ["imapflow", "mailparser", "nodemailer", "jsdom"],
+  // Conservative security headers applied to every route. Note: we deliberately
+  // do NOT set a Content-Security-Policy here. Next.js injects inline styles and
+  // bootstrap scripts (and our sanitized email HTML renders inline styles too),
+  // so a strict CSP would require nonces/hashes across the whole app and would
+  // break those. DOMPurify already sanitizes untrusted email HTML server-side,
+  // which is our primary XSS defense. CSP can be layered in later with nonces.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=()",
+          },
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default withSerwist(nextConfig);

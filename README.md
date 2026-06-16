@@ -3,11 +3,14 @@
 > AI-first universal email client. Built as a mobile-ready PWA with Claude
 > Code. Submission for the aptask take-home assignment.
 
-**[Live demo →](https://inboxiq.vercel.app)** *(URL filled in after deploy)*
+**Live demo:** deploy pending — run locally with `npm run dev` (no setup
+needed; it boots straight into the demo inbox). The deployed URL will be added
+here once the Vercel project is live.
 
-InboxIQ unifies Gmail, Outlook (Microsoft Graph) and any IMAP mailbox into a
-single AI-triaged inbox. Every message ships with a one-line summary, a
-priority label, and one-tap AI-generated reply drafts.
+InboxIQ unifies Gmail, Outlook (Microsoft Graph) and any IMAP mailbox (Yahoo,
+AOL, custom) into a single AI-triaged inbox. Every message ships with a
+one-line summary and a priority label rendered inline, plus AI-assisted reply
+drafts and semantic search.
 
 ---
 
@@ -56,8 +59,10 @@ npm run check      # lint + typecheck + tests
 ```
 
 If you start the app with no providers configured, it falls back to a
-**demo inbox** with 8 realistic messages so the UI and AI features are
-explorable without any setup.
+**demo inbox** with a set of realistic messages (across all five priority
+levels, plus a populated Sent folder) so the UI and AI features are explorable
+without any setup. The demo messages ship with summaries and priorities baked
+in, so AI features are visible even without an `ANTHROPIC_API_KEY`.
 
 ---
 
@@ -99,9 +104,15 @@ public/              manifest, icons, sw.js (generated)
 | Reply draft | Sonnet 4.6 | yes | Drawer on the message view |
 | Semantic search rewrite | Haiku 4.5 | yes | Top-of-inbox search bar |
 
+For signed-in accounts, summary and priority are fetched together per row via a
+single batched call (`/api/ai/enrich-batch`) and cached in `localStorage`, so
+each message is enriched at most once and folder switches don't re-fetch.
+
 All prompts use `cache_control: { type: "ephemeral" }` so repeat calls amortize
-the system tokens. Output is always validated with `zod`; on parse failure the
-UI falls back to no-AI rendering.
+the system tokens. Output is always validated with `zod`. AI degrades
+gracefully: with no `ANTHROPIC_API_KEY` (or on any provider error) the row
+renders without an AI card rather than showing a fake summary or an error —
+and search falls back to plain keyword matching.
 
 ---
 
@@ -122,11 +133,33 @@ Full writeup: [docs/workflow.md](docs/workflow.md).
 
 ## Security model
 
-- OAuth refresh tokens stored only inside the Auth.js JWT cookie (httpOnly, secure, sameSite=lax).
-- IMAP credentials are AES-256-GCM encrypted at rest with `IMAP_ENCRYPTION_KEY`.
+- OAuth access/refresh tokens stored only inside the Auth.js JWT cookie (httpOnly, secure, sameSite=lax).
+- IMAP credentials are AES-256-GCM encrypted with `IMAP_ENCRYPTION_KEY` and kept in an httpOnly cookie (no database or KV store).
 - Every API route validates input with `zod`.
-- Email HTML bodies are sanitized before rendering.
+- Email HTML bodies are sanitized server-side with DOMPurify at the provider boundary before rendering.
+- API routes are gated: in production an unauthenticated caller cannot use the AI endpoints as an open Claude proxy or act on a mailbox.
+- IMAP host/port input is SSRF-guarded (private/loopback/link-local ranges blocked, including the cloud metadata IP).
+- Conservative security headers (X-Frame-Options, nosniff, Referrer-Policy, HSTS, Permissions-Policy) are set.
 - No secrets are committed to the repo. `.env.example` documents the contract.
+
+---
+
+## Known limitations & next steps
+
+Honest scope notes for reviewers:
+
+- **Multiple simultaneous OAuth accounts.** Auth.js keeps a single OAuth
+  session, so one Gmail **and** one IMAP (Yahoo/AOL) account coexist and merge
+  into the unified inbox today, but connecting two OAuth accounts at once (e.g.
+  two Gmails) would require a custom multi-token store — out of scope here.
+- **Labels.** Label-based folders work (Inbox / Starred / Sent; archive removes
+  the `INBOX` label) and the provider layer supports add/remove-label, but there
+  is no custom-label *picker* UI yet.
+- **Office 365 / Graph** is implemented to the same provider interface and
+  unit-tested, but not exercised against a live tenant (no Azure app
+  registration). Gmail is the live-proven provider; IMAP is proven against
+  Yahoo.
+- **Live Vercel URL** is pending deployment.
 
 ---
 

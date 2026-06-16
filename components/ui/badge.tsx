@@ -9,9 +9,10 @@ const badgeVariants = cva(
       tone: {
         urgent: "bg-danger/10 text-danger",
         important: "bg-accent/10 text-accent",
-        newsletter: "bg-fg-muted/12 text-fg-muted",
-        promo: "bg-amber/12 text-amber",
-        other: "bg-fg-muted/10 text-fg-subtle",
+        newsletter: "bg-fg-muted/15 text-fg-muted",
+        // amber token is too light on a pale tint for AA text; deepen the text.
+        promo: "bg-amber/15 text-[#8a5a12] dark:text-amber",
+        other: "bg-fg-muted/15 text-fg-muted",
         neutral: "bg-surface-2 text-fg-muted",
       },
     },

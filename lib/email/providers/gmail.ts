@@ -9,6 +9,7 @@ import type {
 } from "./types";
 import { TokenExpiredError, ProviderError } from "./types";
 import { parseAddressList, htmlFromBase64, textFromBase64 } from "./parse";
+import { sanitizeHtml } from "./sanitize";
 
 const LABEL_MAP: Record<string, string> = {
   INBOX: "INBOX",
@@ -67,7 +68,7 @@ function normalize(
     cc: parseAddressList(header(headers, "Cc")),
     subject: header(headers, "Subject") || "(no subject)",
     snippet: msg.snippet ?? "",
-    bodyHtml: out.html,
+    bodyHtml: sanitizeHtml(out.html),
     bodyText: out.text,
     date: new Date(Number(msg.internalDate ?? Date.now())).toISOString(),
     unread: labels.includes("UNREAD"),

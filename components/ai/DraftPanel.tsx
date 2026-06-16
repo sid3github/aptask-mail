@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Sparkles, X, Send, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea, Input } from "@/components/ui/input";
@@ -34,6 +34,25 @@ export function DraftPanel({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sentId, setSentId] = useState<string | null>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  // Escape closes the dialog and focus returns to whatever opened it.
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onClose();
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    // Move focus into the dialog so keyboard users land here, not at page top.
+    closeRef.current?.focus();
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      opener?.focus?.();
+    };
+  }, [onClose]);
 
   async function generate() {
     setGenerating(true);
@@ -107,9 +126,10 @@ export function DraftPanel({
           <h2 className="font-display text-sm font-semibold text-fg">AI draft reply</h2>
           <span className="text-xs text-fg-subtle">to {toAddress.name || toAddress.email}</span>
           <button
+            ref={closeRef}
             onClick={onClose}
             aria-label="Close draft panel"
-            className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-full text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+            className="ml-auto inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             <X size={16} />
           </button>
@@ -136,7 +156,7 @@ export function DraftPanel({
                     onClick={() => setTone(t)}
                     aria-pressed={tone === t}
                     className={cn(
-                      "rounded-full px-3 py-1 text-xs font-medium capitalize transition-colors",
+                      "inline-flex min-h-[44px] items-center rounded-full px-4 text-xs font-medium capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50",
                       tone === t
                         ? "bg-surface text-fg shadow-sm"
                         : "text-fg-muted hover:text-fg",

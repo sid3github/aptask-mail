@@ -53,10 +53,16 @@ export function EmailRow({ message }: { message: EmailMessage }) {
             {display}
           </span>
           {message.starred && (
-            <Star size={12} className="shrink-0 fill-amber text-amber" aria-label="starred" />
+            <>
+              <Star size={12} className="shrink-0 fill-amber text-amber" aria-hidden />
+              <span className="sr-only">Starred</span>
+            </>
           )}
           {message.hasAttachments && (
-            <Paperclip size={12} className="shrink-0 text-fg-subtle" aria-label="attachment" />
+            <>
+              <Paperclip size={12} className="shrink-0 text-fg-subtle" aria-hidden />
+              <span className="sr-only">Has attachment</span>
+            </>
           )}
           <span className="ml-auto shrink-0 text-[11px] tabular-nums text-fg-subtle">
             {emailDate(message.date)}

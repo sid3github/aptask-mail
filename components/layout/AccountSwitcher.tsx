@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Plus, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { signOutAction } from "@/lib/auth/actions";
@@ -21,6 +21,20 @@ export function AccountSwitcher({
   variant?: "bar" | "sidebar";
 }) {
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  // Escape closes the menu and returns focus to its trigger.
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
 
   if (accounts.length === 0) {
     return (
@@ -79,6 +93,7 @@ export function AccountSwitcher({
           </>
         )}
         <button
+          ref={triggerRef}
           onClick={() => setOpen((v) => !v)}
           aria-haspopup="menu"
           aria-expanded={open}
@@ -101,6 +116,7 @@ export function AccountSwitcher({
   return (
     <div className="relative">
       <button
+        ref={triggerRef}
         className="inline-flex h-10 items-center gap-2 rounded-full border border-border bg-surface pl-1.5 pr-2.5 text-xs font-medium text-fg transition-colors hover:border-fg-subtle"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"

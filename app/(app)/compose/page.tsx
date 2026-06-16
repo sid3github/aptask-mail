@@ -1,16 +1,38 @@
 "use client";
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Send, Check } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 
-export default function ComposePage() {
-  const [to, setTo] = useState("");
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
+type Account = { id: string; email: string; provider: string };
+
+function ComposeInner() {
+  const params = useSearchParams();
+  const [to, setTo] = useState(params.get("to") ?? "");
+  const [subject, setSubject] = useState(params.get("subject") ?? "");
+  const [body, setBody] = useState(params.get("body") ?? "");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  const [accounts, setAccounts] = useState<Account[]>([]);
+
+  // Pull the real connected accounts so the shell header shows the active
+  // account instead of "Add account".
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/email/list?limit=1")
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((j: { accounts?: Account[] }) => {
+        if (alive && Array.isArray(j.accounts)) setAccounts(j.accounts);
+      })
+      .catch(() => {
+        /* leave accounts empty — header falls back to "Add account" */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   async function send(e: React.FormEvent) {
     e.preventDefault();
@@ -38,7 +60,7 @@ export default function ComposePage() {
   }
 
   return (
-    <AppShell accounts={[]}>
+    <AppShell accounts={accounts}>
       <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-8">
         <h1 className="font-display text-2xl font-semibold tracking-tight text-fg">
           New message
@@ -85,5 +107,13 @@ export default function ComposePage() {
         </form>
       </div>
     </AppShell>
+  );
+}
+
+export default function ComposePage() {
+  return (
+    <Suspense fallback={<AppShell accounts={[]}>{null}</AppShell>}>
+      <ComposeInner />
+    </Suspense>
   );
 }

@@ -80,6 +80,27 @@ async function refreshGoogleToken(refreshToken: string) {
   return r.json() as Promise<{ access_token: string; expires_in: number; refresh_token?: string }>;
 }
 
+async function refreshMicrosoftToken(refreshToken: string) {
+  const tenant = process.env.AZURE_AD_TENANT_ID || "common";
+  const params = new URLSearchParams({
+    client_id: process.env.AZURE_AD_CLIENT_ID!,
+    client_secret: process.env.AZURE_AD_CLIENT_SECRET!,
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+    scope: "offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read",
+  });
+  const r = await fetch(
+    `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: params,
+    },
+  );
+  if (!r.ok) throw new Error(`microsoft refresh failed ${r.status}`);
+  return r.json() as Promise<{ access_token: string; expires_in: number; refresh_token?: string }>;
+}
+
 type AppJWT = {
   accessToken?: string;
   refreshToken?: string;
@@ -112,6 +133,12 @@ export const authConfig: NextAuthConfig = {
       try {
         if (t.provider === "google" && t.refreshToken) {
           const r = await refreshGoogleToken(t.refreshToken);
+          t.accessToken = r.access_token;
+          t.accessTokenExpires = Date.now() + r.expires_in * 1000;
+          if (r.refresh_token) t.refreshToken = r.refresh_token;
+          t.error = undefined;
+        } else if (t.provider === "microsoft-entra-id" && t.refreshToken) {
+          const r = await refreshMicrosoftToken(t.refreshToken);
           t.accessToken = r.access_token;
           t.accessTokenExpires = Date.now() + r.expires_in * 1000;
           if (r.refresh_token) t.refreshToken = r.refresh_token;

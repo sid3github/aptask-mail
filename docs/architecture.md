@@ -16,7 +16,7 @@
 │   └──────┬───────┘   └──────┬───────┘   └──────────┬─────────────┘    │
 │          │                  │                       │                   │
 │   ┌──────┴─────────────────┴───────────────────────┴─────────────┐    │
-│   │              fetch()  /  IndexedDB cache                     │    │
+│   │   server-rendered HTML  +  fetch()  +  localStorage AI cache  │    │
 │   └──────────────────────────┬───────────────────────────────────┘    │
 └──────────────────────────────┼─────────────────────────────────────────┘
                                │
@@ -54,22 +54,41 @@
 
 ## Request flow: "show my unified inbox"
 
-1. User opens `/inbox`. Server component checks Auth.js session.
-2. For each linked account, the page fetches `/api/email/list?accountId=…`.
-3. The endpoint resolves the provider for the account, calls
-   `provider.listMessages({ cursor, limit })`, normalizes to `EmailMessage[]`.
-4. Response is merged by date in the page, dispatched to the client.
-5. Client caches the page slice in IndexedDB so a refresh is instant.
-6. In parallel, `/api/ai/summarize` is called for messages without cached
-   summaries; results stream back and patch the UI.
+1. User opens `/inbox`. The page is a server component (`dynamic =
+   "force-dynamic"`) that calls `loadInbox(limit, label)` in `lib/email/load.ts`.
+2. `resolveProviders()` reads the request's signed-in state — the Auth.js
+   session (Google or Microsoft) and/or the encrypted IMAP cookie — and builds
+   one `EmailProvider` per linked account. If none are configured it falls back
+   to the bundled demo mailbox.
+3. `loadInbox` calls `provider.listMessages({ limit, label })` on every
+   provider in parallel (`Promise.allSettled`, so one failing account never
+   blocks the others), normalizes each to `EmailMessage[]`, and merges them
+   by date. The merged list is server-rendered into the initial HTML — there
+   is **no** per-account `/api/email/list` fetch on first paint.
+4. The client component `EmailListEnriched` hydrates over that HTML. For any
+   message lacking an `ai` block, it POSTs a batch to `/api/ai/enrich-batch`;
+   results patch the rows in place (skeleton → summary + priority badge).
+5. AI verdicts are cached in **`localStorage`** (`inboxiq:ai-cache:v2`) keyed by
+   message id, plus an in-memory session map, so each message is enriched at
+   most once per session and folder switches never re-trigger a shimmer.
+   Messages themselves are **not** cached client-side — there is no IndexedDB.
+6. "Load more" calls `/api/email/list?limit=…&label=…` for a larger page; the
+   same loader runs server-side and the new rows go through the cache + enrich
+   path above.
 
-## Request flow: "summarize this email"
+## Request flow: "summarize + prioritize a row"
 
-1. Client posts `{ messageId, snippet, body }` to `/api/ai/summarize`.
-2. Server calls `messages.create` on Claude Haiku 4.5 with the **cached
-   system prompt** (`cache_control: ephemeral`).
-3. Response is validated with zod, persisted in the message cache, returned.
-4. Subsequent loads of the same message read the cached summary.
+1. `EmailListEnriched` posts `{ items: [{ id, from, subject, snippet }, …] }`
+   (≤25 per batch) to `/api/ai/enrich-batch`.
+2. The route validates with zod. With no `ANTHROPIC_API_KEY` it returns
+   `{ unavailable: true }` markers and the UI degrades cleanly — the row simply
+   renders without an AI card, never a fake summary or an error string.
+3. With a key, each item runs `summarize()` and `prioritize()` in parallel
+   (Claude Haiku 4.5, **cached system prompt** via `cache_control: ephemeral`).
+   Output is zod-validated; any per-item failure (rate limit, billing) is
+   swallowed into an `unavailable` marker, never surfaced to the client.
+4. Real summaries are written to `localStorage`; subsequent loads of the same
+   message read the cached verdict instead of calling the API again.
 
 ## Provider abstraction
 
@@ -92,13 +111,18 @@ can be added by implementing the interface — no UI changes required.
 ## Security
 
 - Auth.js sessions are JWT cookies, httpOnly + secure.
-- OAuth refresh tokens stored inside the JWT, never exposed to the client.
-- IMAP passwords AES-256-GCM encrypted with `IMAP_ENCRYPTION_KEY` before
-  any persistence (server memory only during a request, Vercel KV in prod).
-- Every API route validates input with `zod` and authorizes the request
-  against the session before touching a provider.
-- Email HTML bodies are sanitized server-side with DOMPurify before
-  rendering in the iframe-isolated `MessageView`.
+- OAuth access/refresh tokens stored inside the JWT, never exposed to the client.
+- IMAP credentials (host, port, user, password, SMTP info) are AES-256-GCM
+  encrypted with `IMAP_ENCRYPTION_KEY` and kept in an **httpOnly cookie**
+  (`iq_imap`), decrypted server-side per request in `lib/auth/imap-session.ts`.
+  There is no database or Vercel KV — the encrypted cookie *is* the store.
+- Every API route validates input with `zod` before touching a provider.
+- Email HTML bodies are sanitized server-side with DOMPurify
+  (`lib/email/providers/sanitize.ts`, jsdom-backed) at the provider
+  normalize boundary, where scripts, inline event handlers and other XSS
+  vectors are stripped. `MessageView` then renders that already-sanitized
+  HTML via `dangerouslySetInnerHTML` inside a contained, light-background
+  "letter" card (not an iframe) so it looks intentional on any app theme.
 
 ## Deployment
 

@@ -9,6 +9,7 @@ import type {
 } from "./types";
 import { TokenExpiredError, ProviderError } from "./types";
 import { parseAddressList } from "./parse";
+import { sanitizeHtml } from "./sanitize";
 
 type GraphMessage = {
   id: string;
@@ -39,7 +40,12 @@ function rcpt(r: GraphMessage["toRecipients"]) {
     .filter((x) => x.email);
 }
 
-function normalize(m: GraphMessage, accountId: string): EmailMessage {
+/**
+ * Build the canonical message. `boxLabel` is the normalized label for the
+ * mailbox the message was read from (e.g. INBOX, SENT) so the row carries the
+ * correct folder label instead of a hardcoded "INBOX".
+ */
+function normalize(m: GraphMessage, accountId: string, boxLabel: string): EmailMessage {
   const html = m.body?.contentType?.toLowerCase() === "html" ? m.body?.content : undefined;
   const text = m.body?.contentType?.toLowerCase() === "text" ? m.body?.content : undefined;
   const starred = m.flag?.flagStatus === "flagged";
@@ -55,13 +61,13 @@ function normalize(m: GraphMessage, accountId: string): EmailMessage {
     cc: rcpt(m.ccRecipients),
     subject: m.subject || "(no subject)",
     snippet: m.bodyPreview ?? "",
-    bodyHtml: html,
+    bodyHtml: sanitizeHtml(html),
     bodyText: text,
     date: m.receivedDateTime ?? new Date().toISOString(),
     unread: m.isRead === false,
     starred,
     labels: [
-      "INBOX",
+      boxLabel,
       ...(m.isRead === false ? ["UNREAD"] : []),
       ...(starred ? ["STARRED"] : []),
       ...(m.categories ?? []),
@@ -141,7 +147,7 @@ export class GraphProvider implements EmailProvider {
       const res = opts.cursor
         ? await this.c.api(opts.cursor).get()
         : await this.c.api(url).get();
-      const items = ((res.value as GraphMessage[]) ?? []).map((m) => normalize(m, this.accountId));
+      const items = ((res.value as GraphMessage[]) ?? []).map((m) => normalize(m, this.accountId, label));
       return { items, nextCursor: res["@odata.nextLink"] };
     });
   }
@@ -150,7 +156,11 @@ export class GraphProvider implements EmailProvider {
     return this.run(async () => {
       const native = id.replace(/^graph:/, "");
       const m: GraphMessage = await this.c.api(`/me/messages/${native}`).get();
-      return normalize(m, this.accountId);
+      // Derive the folder label from the parent folder when recognizable; the
+      // sent-items well-known folder id contains "sentitems". Default to INBOX.
+      const folderId = (m.parentFolderId ?? "").toLowerCase();
+      const boxLabel = folderId.includes("sentitems") ? "SENT" : "INBOX";
+      return normalize(m, this.accountId, boxLabel);
     });
   }
 

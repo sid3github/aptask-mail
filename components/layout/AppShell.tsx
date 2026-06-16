@@ -1,8 +1,9 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { Search, Sparkles, Pencil } from "lucide-react";
+import { Sparkles, Pencil } from "lucide-react";
 import { AccountSwitcher } from "./AccountSwitcher";
 import { SideNav } from "./SideNav";
+import { SearchBar } from "./SearchBar";
 import { Button } from "@/components/ui/button";
 
 type Account = { id: string; email: string; provider: string };
@@ -56,14 +57,13 @@ export function AppShell({
               </span>
             </Link>
 
-            <Link
-              href="/inbox?search=1"
-              className="flex h-10 max-w-md flex-1 items-center gap-2 rounded-full border border-border bg-surface px-4 text-sm text-fg-subtle transition-colors hover:border-fg-subtle hover:text-fg-muted"
-              aria-label="Search mail"
+            <Suspense
+              fallback={
+                <div className="h-10 max-w-md flex-1 rounded-full border border-border bg-surface" />
+              }
             >
-              <Search size={14} />
-              <span className="truncate">Search mail</span>
-            </Link>
+              <SearchBar />
+            </Suspense>
 
             <div className="lg:hidden">
               <Suspense fallback={null}>

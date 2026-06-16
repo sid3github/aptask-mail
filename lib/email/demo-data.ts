@@ -180,4 +180,77 @@ export const DEMO_MESSAGES: EmailMessage[] = [
       priorityReason: "Family request with deadline",
     },
   },
+  // ── Sent mail ──────────────────────────────────────────────────────────
+  // From the demo user to others, so the Sent folder shows real content in
+  // demo mode instead of an empty state.
+  {
+    id: "demo:s1",
+    accountId: DEMO_ACCOUNT_ID,
+    threadId: "demo:t1",
+    from: { name: "You", email: "you@inboxiq.app" },
+    to: [{ name: "Sarah Chen", email: "sarah@figma.com" }],
+    subject: "Re: Design review tomorrow at 2pm",
+    snippet:
+      "2pm works for me — I'll come with notes on the onboarding flow. Can you share the latest dashboard mocks beforehand so I can review them?",
+    bodyText:
+      "Hi Sarah,\n\n2pm works for me. I'll come with notes on the onboarding flow.\n\nCould you share the latest dashboard mocks beforehand so I can review them ahead of time?\n\nSee you tomorrow,\nYou",
+    date: ago(6),
+    unread: false,
+    starred: false,
+    labels: ["SENT"],
+    hasAttachments: false,
+    ai: {
+      summary: "You confirmed the 2pm review and asked for the mocks.",
+      priority: "important",
+      priorityReason: "Reply to a scheduled work meeting",
+    },
+  },
+  {
+    id: "demo:s2",
+    accountId: DEMO_ACCOUNT_ID,
+    threadId: "demo:ts2",
+    from: { name: "You", email: "you@inboxiq.app" },
+    to: [{ name: "Alex (AcmeAI)", email: "alex@acmeai.com" }],
+    cc: [{ email: "talent@acmeai.com" }],
+    subject: "Re: Senior Engineer role — interested in a chat?",
+    snippet:
+      "Thanks Alex — happy to chat. I'm free Tuesday or Wednesday afternoon next week. Sending a couple of slots: Tue 2-4pm or Wed 1-3pm PT.",
+    bodyText:
+      "Hi Alex,\n\nThanks for reaching out — happy to chat about the agent-tooling role.\n\nI'm free Tuesday or Wednesday afternoon next week. A couple of slots that work: Tue 2-4pm or Wed 1-3pm PT. Let me know what suits you and I'll send a calendar invite.\n\nBest,\nYou",
+    date: ago(900),
+    unread: false,
+    starred: false,
+    labels: ["SENT"],
+    hasAttachments: false,
+    ai: {
+      summary: "You proposed two call slots for the AcmeAI intro.",
+      priority: "important",
+      priorityReason: "Outbound reply scheduling an interview",
+    },
+  },
+  {
+    id: "demo:s3",
+    accountId: DEMO_ACCOUNT_ID,
+    threadId: "demo:ts3",
+    from: { name: "You", email: "you@inboxiq.app" },
+    to: [
+      { name: "Priya Nair", email: "priya@inboxiq.app" },
+      { name: "Tom Reyes", email: "tom@inboxiq.app" },
+    ],
+    subject: "Inbox triage demo — ready for review",
+    snippet:
+      "Pushed the AI prioritization branch. Summaries and priority badges render inline on every row now. Quick walkthrough attached — feedback welcome before Friday.",
+    bodyText:
+      "Team,\n\nPushed the AI prioritization branch. Summaries and priority badges now render inline on every row — no extra clicks.\n\nQuick walkthrough deck is attached. Feedback welcome before Friday so we can fold it in ahead of the demo.\n\nThanks,\nYou",
+    date: ago(1500),
+    unread: false,
+    starred: false,
+    labels: ["SENT"],
+    hasAttachments: true,
+    ai: {
+      summary: "You shared the AI triage branch and asked for feedback by Friday.",
+      priority: "other",
+      priorityReason: "Outbound team update",
+    },
+  },
 ];

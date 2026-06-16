@@ -14,8 +14,8 @@
   --border: #e9e4d9;      /* soft warm hairline */
   --border-strong: #ddd6c8;
   --fg: #1b1a16;          /* warm near-black ink */
-  --fg-muted: #79746a;    /* warm gray */
-  --fg-subtle: #a9a399;
+  --fg-muted: #5f5b4f;    /* warm gray — AA on --bg (~6.2:1) */
+  --fg-subtle: #6b6659;   /* warm gray, quieter — AA on --bg (~5.0:1) */
   --accent: #3b4ee0;      /* confident cobalt */
   --accent-hover: #2f40c9;
   --accent-fg: #ffffff;
@@ -84,6 +84,17 @@ body {
 ::selection {
   background: color-mix(in oklab, var(--accent) 22%, transparent);
   color: var(--fg);
+}
+
+/* ── Accessibility: baseline keyboard focus ring ──────────────────────────
+   Ensures every bare interactive element shows a visible ring on keyboard
+   focus. Components that already opt into focus-visible:ring utilities
+   (Button, Input) layer their own ring on top — this is the floor, not a
+   conflict, since those utilities set their own outline/ring treatment. */
+:where(a, button, [role="button"], input, textarea, select, summary):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
 /* Quiet, theme-aware scrollbars */

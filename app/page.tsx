@@ -132,9 +132,14 @@ export default function HomePage() {
         <footer className="flex flex-col gap-2 border-t border-border py-8 text-xs text-fg-muted sm:flex-row sm:items-center sm:justify-between">
           <span>Built with Claude Code for the aptask take-home.</span>
           <span className="flex gap-4">
-            <Link href="/architecture" className="hover:text-fg">
+            <a
+              href="https://github.com/sid3github/aptask-mail/blob/main/docs/architecture.md"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-fg"
+            >
               Architecture
-            </Link>
+            </a>
             <a
               href="https://github.com/sid3github/aptask-mail"
               className="hover:text-fg"
