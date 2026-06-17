@@ -45,7 +45,7 @@ The product is called **InboxIQ**.
 | Language | TypeScript strict | Type safety across provider boundary |
 | Styling | Tailwind v4 + custom design tokens | Fast, mobile-first, low CSS payload |
 | Auth | Auth.js v5 (next-auth beta) | Multi-provider OAuth out of the box |
-| AI | Anthropic Claude (`@anthropic-ai/sdk`) with prompt caching | Best-in-class for summarization |
+| AI | Local engine — rule-based priority + extractive summaries + template drafts (`lib/ai/`) | Zero-cost, no API key, works offline; see `docs/specs/03-local-ai-engine.md` |
 | Email APIs | `googleapis`, `@microsoft/microsoft-graph-client`, `imapflow` | Official SDKs |
 | Storage (server) | Encrypted IMAP creds in Vercel KV (fallback to env for demo) | Keep secrets off disk |
 | Storage (client) | IndexedDB via custom thin wrapper | Offline inbox cache |
@@ -64,7 +64,7 @@ app/                   Next.js App Router pages and API routes
   (app)/compose        Compose / reply / forward
   api/auth/[...nextauth]  Auth.js handler
   api/email/*          Provider-agnostic email endpoints
-  api/ai/*             Claude-backed AI endpoints
+  api/ai/*             Local AI endpoints (summary, priority, draft, search)
 components/
   ui/                  shadcn-style primitives
   email/               EmailRow, MessageView, ComposeForm, ProviderBadge
@@ -73,7 +73,7 @@ components/
 lib/
   email/providers/     gmail.ts, graph.ts, imap.ts, types.ts
   email/normalize.ts   Provider response -> canonical EmailMessage
-  ai/                  Claude client, prompts, caching
+  ai/                  Local engine: prioritize, summarize, draft, search
   auth/                Auth.js config + token refresh
   db/                  IndexedDB wrapper (client) + KV wrapper (server)
 docs/
@@ -177,7 +177,6 @@ are set.
 |---|---|---|
 | `AUTH_SECRET` | yes | Auth.js session encryption |
 | `NEXTAUTH_URL` | prod | Auth.js callback base URL |
-| `ANTHROPIC_API_KEY` | for AI | Claude API |
 | `GOOGLE_CLIENT_ID` / `_SECRET` | for Gmail | OAuth |
 | `AZURE_AD_CLIENT_ID` / `_SECRET` / `_TENANT_ID` | for O365 | OAuth |
 | `IMAP_ENCRYPTION_KEY` | for IMAP | 32-byte AES key for credential storage |

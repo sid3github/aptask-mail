@@ -7,7 +7,7 @@ import { GraphProvider } from "@/lib/email/providers/graph";
 import { ImapProvider } from "@/lib/email/providers/imap";
 import type { EmailMessage, EmailProvider } from "@/lib/email/providers/types";
 import { readImapAccount } from "@/lib/auth/imap-session";
-import { DEMO_ACCOUNT_ID, DEMO_MESSAGES } from "@/lib/email/demo-data";
+import { DEMO_ACCOUNTS, DEMO_MESSAGES } from "@/lib/email/demo-data";
 
 export type AccountInfo = {
   id: string;
@@ -64,6 +64,15 @@ export async function resolveProviders(): Promise<LoadResult> {
   return { providers: out, accounts, isDemo: out.length === 0 };
 }
 
+// Lightweight account list for the persistent app shell (sidebar / account
+// switcher). Reads the session + IMAP cookie only — no message fetch — so the
+// shell can render instantly and stay mounted across tab navigations. Falls
+// back to the simulated demo accounts when nothing is connected.
+export async function loadAccounts(): Promise<AccountInfo[]> {
+  const r = await resolveProviders();
+  return r.isDemo ? DEMO_ACCOUNTS : r.accounts;
+}
+
 export async function loadInbox(
   limit = 25,
   label = "INBOX",
@@ -74,15 +83,12 @@ export async function loadInbox(
 }> {
   const r = await resolveProviders();
   if (r.isDemo) {
-    const filtered =
-      label === "INBOX"
-        ? DEMO_MESSAGES
-        : DEMO_MESSAGES.filter((m) => m.labels.includes(label));
-    return {
-      messages: filtered,
-      accounts: [{ id: DEMO_ACCOUNT_ID, email: "inbox@inboxiq.app", provider: "demo" }],
-      isDemo: true,
-    };
+    // Filter by the requested folder so INBOX never leaks SENT-only messages,
+    // then merge by date across the simulated accounts (same as the real path).
+    const filtered = DEMO_MESSAGES.filter((m) => m.labels.includes(label)).sort(
+      (a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0),
+    );
+    return { messages: filtered, accounts: DEMO_ACCOUNTS, isDemo: true };
   }
   const settled = await Promise.allSettled(
     r.providers.map(({ provider }) => provider.listMessages({ limit, label })),
@@ -120,11 +126,7 @@ export async function loadSearch(
           return haystack.includes(needle);
         })
       : [];
-    return {
-      messages: matched.slice(0, limit),
-      accounts: [{ id: DEMO_ACCOUNT_ID, email: "inbox@inboxiq.app", provider: "demo" }],
-      isDemo: true,
-    };
+    return { messages: matched.slice(0, limit), accounts: DEMO_ACCOUNTS, isDemo: true };
   }
   const settled = await Promise.allSettled(
     r.providers.map(({ provider }) => provider.search(q, limit)),

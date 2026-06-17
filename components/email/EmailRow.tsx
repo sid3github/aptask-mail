@@ -3,6 +3,8 @@ import Link from "next/link";
 import { Sparkles, Star, Paperclip } from "lucide-react";
 import type { EmailMessage } from "@/lib/email/providers/types";
 import { PriorityBadge } from "./PriorityBadge";
+import { ProviderTag } from "./ProviderTag";
+import { providerBrand } from "@/lib/email/provider-brand";
 import { emailDate } from "@/lib/utils/date";
 import { cn } from "@/lib/utils/cn";
 
@@ -14,6 +16,7 @@ function initials(name?: string, email?: string): string {
 
 export function EmailRow({ message }: { message: EmailMessage }) {
   const display = message.from.name || message.from.email;
+  const brand = providerBrand(message);
   return (
     <Link
       href={`/inbox/${encodeURIComponent(message.id)}`}
@@ -87,9 +90,10 @@ export function EmailRow({ message }: { message: EmailMessage }) {
           <div className="mt-2 h-3 w-2/3 rounded skeleton" aria-hidden />
         ) : null}
 
-        {message.ai?.priority && (
-          <div className="mt-2">
-            <PriorityBadge priority={message.ai.priority} />
+        {(message.ai?.priority || brand) && (
+          <div className="mt-2 flex items-center gap-2.5">
+            {message.ai?.priority && <PriorityBadge priority={message.ai.priority} />}
+            {brand && <ProviderTag brand={brand} />}
           </div>
         )}
       </div>

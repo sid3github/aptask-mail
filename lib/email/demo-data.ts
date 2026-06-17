@@ -1,19 +1,30 @@
-// Demo-mode mailbox. Used when no provider is configured so that graders
-// can see the UI working end-to-end without OAuth setup.
+// Demo-mode mailbox. Used when no provider is configured so that graders can
+// see the UI working end-to-end without OAuth setup. The demo simulates THREE
+// connected accounts (Gmail, Outlook, Yahoo-over-IMAP) so the unified-inbox
+// merge — the core of the product — is visible without real credentials.
 import type { EmailMessage } from "./providers/types";
 
 const now = Date.now();
 const ago = (mins: number) => new Date(now - mins * 60_000).toISOString();
 
-export const DEMO_ACCOUNT_ID = "demo:inbox@inboxiq.app";
+// The three simulated accounts. `provider` matches the canonical AccountInfo
+// union; the per-message `accountId` points back to one of these.
+export const DEMO_ACCOUNTS = [
+  { id: "demo:gmail", email: "you@gmail.com", provider: "gmail" as const },
+  { id: "demo:outlook", email: "you@outlook.com", provider: "graph" as const },
+  { id: "demo:yahoo", email: "you@yahoo.com", provider: "imap" as const },
+];
+
+// Kept for back-compat; the "primary" demo account.
+export const DEMO_ACCOUNT_ID = "demo:gmail";
 
 export const DEMO_MESSAGES: EmailMessage[] = [
   {
     id: "demo:1",
-    accountId: DEMO_ACCOUNT_ID,
+    accountId: "demo:gmail",
     threadId: "demo:t1",
     from: { name: "Sarah Chen", email: "sarah@figma.com" },
-    to: [{ email: "you@inboxiq.app" }],
+    to: [{ email: "you@gmail.com" }],
     subject: "Design review tomorrow at 2pm",
     snippet:
       "Hey — can you join the design review at 2pm tomorrow? We'll be looking at the new dashboard and the onboarding flow. Reply with yes/no or a better time.",
@@ -32,10 +43,10 @@ export const DEMO_MESSAGES: EmailMessage[] = [
   },
   {
     id: "demo:2",
-    accountId: DEMO_ACCOUNT_ID,
+    accountId: "demo:outlook",
     threadId: "demo:t2",
     from: { name: "AWS Billing", email: "no-reply@aws.amazon.com" },
-    to: [{ email: "you@inboxiq.app" }],
+    to: [{ email: "you@outlook.com" }],
     subject: "URGENT: Your AWS account will be suspended in 24 hours",
     snippet:
       "Action required: payment failed on your monthly AWS invoice. Update your payment method within 24 hours to avoid service interruption to all resources.",
@@ -54,10 +65,10 @@ export const DEMO_MESSAGES: EmailMessage[] = [
   },
   {
     id: "demo:3",
-    accountId: DEMO_ACCOUNT_ID,
+    accountId: "demo:gmail",
     threadId: "demo:t3",
     from: { name: "GitHub", email: "noreply@github.com" },
-    to: [{ email: "you@inboxiq.app" }],
+    to: [{ email: "you@gmail.com" }],
     subject: "[PR] @bob requested your review on PR #423",
     snippet:
       "bob opened a pull request: 'Add OAuth callback handler for Microsoft Entra ID'. 14 files changed, +312 / -47.",
@@ -76,10 +87,10 @@ export const DEMO_MESSAGES: EmailMessage[] = [
   },
   {
     id: "demo:4",
-    accountId: DEMO_ACCOUNT_ID,
+    accountId: "demo:yahoo",
     threadId: "demo:t4",
     from: { name: "The Pragmatic Engineer", email: "newsletter@pragmaticengineer.com" },
-    to: [{ email: "you@inboxiq.app" }],
+    to: [{ email: "you@yahoo.com" }],
     subject: "How LinkedIn rebuilt their feed for 1B users",
     snippet:
       "This week: LinkedIn's feed rearchitecture, the great big tech layoffs of Q1 2026, and what 'staff engineer' means in 2026.",
@@ -98,10 +109,10 @@ export const DEMO_MESSAGES: EmailMessage[] = [
   },
   {
     id: "demo:5",
-    accountId: DEMO_ACCOUNT_ID,
+    accountId: "demo:yahoo",
     threadId: "demo:t5",
     from: { name: "Best Buy", email: "deals@bestbuy.com" },
-    to: [{ email: "you@inboxiq.app" }],
+    to: [{ email: "you@yahoo.com" }],
     subject: "70% off TVs — this weekend only",
     snippet: "Doorbusters start Friday. 4K from $199. Save up to $1,200 on OLED.",
     bodyText: "Doorbusters start Friday. 4K from $199.",
@@ -118,10 +129,10 @@ export const DEMO_MESSAGES: EmailMessage[] = [
   },
   {
     id: "demo:6",
-    accountId: DEMO_ACCOUNT_ID,
+    accountId: "demo:outlook",
     threadId: "demo:t6",
     from: { name: "Stripe", email: "receipts@stripe.com" },
-    to: [{ email: "you@inboxiq.app" }],
+    to: [{ email: "you@outlook.com" }],
     subject: "Your monthly invoice is ready ($42.18)",
     snippet: "October 2026 invoice for inboxiq-demo workspace. PDF attached.",
     bodyText: "October 2026 invoice for inboxiq-demo workspace. Total: $42.18.",
@@ -138,10 +149,10 @@ export const DEMO_MESSAGES: EmailMessage[] = [
   },
   {
     id: "demo:7",
-    accountId: DEMO_ACCOUNT_ID,
+    accountId: "demo:gmail",
     threadId: "demo:t7",
     from: { name: "Recruiter at AcmeAI", email: "alex@acmeai.com" },
-    to: [{ email: "you@inboxiq.app" }],
+    to: [{ email: "you@gmail.com" }],
     subject: "Senior Engineer role — interested in a chat?",
     snippet:
       "Hi! Saw your work on the email client and wanted to share an opening. Comp range $220-280k + equity. Up for a 15-min intro call next week?",
@@ -160,10 +171,10 @@ export const DEMO_MESSAGES: EmailMessage[] = [
   },
   {
     id: "demo:8",
-    accountId: DEMO_ACCOUNT_ID,
+    accountId: "demo:yahoo",
     threadId: "demo:t8",
     from: { name: "Family group", email: "mom@family.com" },
-    to: [{ email: "you@inboxiq.app" }],
+    to: [{ email: "you@yahoo.com" }],
     subject: "Thanksgiving plans?",
     snippet:
       "Hi sweetheart — are you coming home for Thanksgiving this year? Need to know by Sunday so I can book the train tickets. Love you.",
@@ -185,9 +196,9 @@ export const DEMO_MESSAGES: EmailMessage[] = [
   // demo mode instead of an empty state.
   {
     id: "demo:s1",
-    accountId: DEMO_ACCOUNT_ID,
+    accountId: "demo:gmail",
     threadId: "demo:t1",
-    from: { name: "You", email: "you@inboxiq.app" },
+    from: { name: "You", email: "you@gmail.com" },
     to: [{ name: "Sarah Chen", email: "sarah@figma.com" }],
     subject: "Re: Design review tomorrow at 2pm",
     snippet:
@@ -207,9 +218,9 @@ export const DEMO_MESSAGES: EmailMessage[] = [
   },
   {
     id: "demo:s2",
-    accountId: DEMO_ACCOUNT_ID,
+    accountId: "demo:gmail",
     threadId: "demo:ts2",
-    from: { name: "You", email: "you@inboxiq.app" },
+    from: { name: "You", email: "you@gmail.com" },
     to: [{ name: "Alex (AcmeAI)", email: "alex@acmeai.com" }],
     cc: [{ email: "talent@acmeai.com" }],
     subject: "Re: Senior Engineer role — interested in a chat?",
@@ -230,9 +241,9 @@ export const DEMO_MESSAGES: EmailMessage[] = [
   },
   {
     id: "demo:s3",
-    accountId: DEMO_ACCOUNT_ID,
+    accountId: "demo:outlook",
     threadId: "demo:ts3",
-    from: { name: "You", email: "you@inboxiq.app" },
+    from: { name: "You", email: "you@outlook.com" },
     to: [
       { name: "Priya Nair", email: "priya@inboxiq.app" },
       { name: "Tom Reyes", email: "tom@inboxiq.app" },

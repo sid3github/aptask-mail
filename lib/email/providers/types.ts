@@ -27,6 +27,19 @@ export type AiPriority =
   | "promo"
   | "other";
 
+export type Attachment = {
+  id: string; // provider-specific handle used to fetch the bytes
+  filename: string;
+  contentType: string;
+  size: number; // bytes
+};
+
+export type OutgoingAttachment = {
+  filename: string;
+  contentType: string;
+  dataBase64: string; // standard base64 (not data: URL)
+};
+
 export type EmailMessage = {
   id: string; // provider-prefixed, e.g. "gmail:abc123"
   accountId: string;
@@ -44,6 +57,7 @@ export type EmailMessage = {
   starred: boolean;
   labels: string[];
   hasAttachments: boolean;
+  attachments?: Attachment[];
   ai?: {
     summary?: string;
     priority?: AiPriority;
@@ -59,6 +73,7 @@ export type DraftMessage = {
   subject: string;
   bodyHtml?: string;
   bodyText: string;
+  attachments?: OutgoingAttachment[];
   inReplyToMessageId?: string;
   threadId?: string;
 };
@@ -92,6 +107,11 @@ export interface EmailProvider {
   sendMessage(draft: DraftMessage): Promise<{ id: string }>;
   modifyMessage(id: string, op: ModifyOp): Promise<void>;
   search(query: string, limit?: number): Promise<EmailMessage[]>;
+  /** Fetch one attachment's bytes by the id surfaced on EmailMessage.attachments. */
+  getAttachment(
+    messageId: string,
+    attachmentId: string,
+  ): Promise<{ filename: string; contentType: string; data: Buffer }>;
 }
 
 export class TokenExpiredError extends Error {

@@ -15,6 +15,7 @@ type AiResult = {
 const CACHE_KEY = "inboxiq:ai-cache:v2";
 const INITIAL_LIMIT = 50; // must match the server-side loadInbox limit on the inbox page
 const PAGE = 25; // "Load more" increment
+const CHUNK = 25; // /api/ai/enrich-batch caps `items` at 25 — never POST more than this
 
 // Session-scoped verdict cache. Persists across client navigations (folder
 // switches remount the list, but this module singleton survives), so each
@@ -73,62 +74,77 @@ export function EmailListEnriched({
   useEffect(() => {
     if (!enabled) return;
     const cache = readCache();
+    // Stable Set instance — capture it so the cleanup below operates on the same
+    // object (and to satisfy react-hooks/exhaustive-deps about ref access).
+    const reqSet = requested.current;
 
     const need = messages.filter(
       (m) =>
         !m.ai &&
         !cache[m.id] &&
         !sessionVerdict.has(m.id) &&
-        !requested.current.has(m.id),
+        !reqSet.has(m.id),
     );
     if (need.length === 0) return;
-    need.forEach((m) => requested.current.add(m.id));
+    const ids = need.map((m) => m.id);
+    const idSet = new Set(ids);
+    ids.forEach((id) => reqSet.add(id));
 
     let cancelled = false;
-    const payload = need.map((m) => ({
-      id: m.id,
-      from: m.from.name ? `${m.from.name} <${m.from.email}>` : m.from.email,
-      subject: m.subject,
-      snippet: m.snippet,
-    }));
 
-    fetch("/api/ai/enrich-batch", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ items: payload }),
-    })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then((j: { results: Record<string, AiResult> }) => {
-        if (cancelled) return;
-        const real = Object.fromEntries(
-          Object.entries(j.results).filter(([, v]) => v && !v.unavailable && v.summary),
-        );
-        writeCache({ ...cache, ...real });
-        // Record every verdict (real or unavailable) for the session.
-        for (const m of need) {
-          const r = j.results[m.id];
-          sessionVerdict.set(m.id, r && !r.unavailable && r.summary ? r : {});
-        }
-        setMessages((curr) =>
-          curr.map((m) => {
-            if (m.ai) return m;
-            const r = j.results[m.id];
-            if (!r) return m;
-            return r.unavailable || !r.summary ? { ...m, ai: {} } : { ...m, ai: r };
+    // The route caps each request at CHUNK items, so split a large inbox into
+    // several batches and run them in parallel. A chunk that fails resolves to
+    // empty markers so its rows clear instead of skeletoning forever.
+    const chunks: EmailMessage[][] = [];
+    for (let i = 0; i < need.length; i += CHUNK) chunks.push(need.slice(i, i + CHUNK));
+
+    Promise.all(
+      chunks.map((chunk) =>
+        fetch("/api/ai/enrich-batch", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            items: chunk.map((m) => ({
+              id: m.id,
+              from: m.from.name ? `${m.from.name} <${m.from.email}>` : m.from.email,
+              subject: m.subject,
+              snippet: m.snippet,
+            })),
           }),
-        );
-      })
-      .catch(() => {
-        if (cancelled) return;
-        // Network failure — mark attempted as empty so skeletons stop; do not
-        // record in sessionVerdict so a later mount can retry.
-        setMessages((curr) =>
-          curr.map((m) => (m.ai ? m : need.some((n) => n.id === m.id) ? { ...m, ai: {} } : m)),
-        );
-      });
+        })
+          .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+          .then((j: { results?: Record<string, AiResult> }) => j.results ?? {})
+          .catch(() => Object.fromEntries(chunk.map((m) => [m.id, {} as AiResult]))),
+      ),
+    ).then((perChunk) => {
+      if (cancelled) return;
+      const results: Record<string, AiResult> = Object.assign({}, ...perChunk);
+      const real = Object.fromEntries(
+        Object.entries(results).filter(([, v]) => v && !v.unavailable && v.summary),
+      );
+      writeCache({ ...cache, ...real });
+      // Record every verdict (real or unavailable) for the session so folder
+      // switches never re-skeleton an already-resolved message.
+      for (const id of ids) {
+        const r = results[id];
+        sessionVerdict.set(id, r && !r.unavailable && r.summary ? r : {});
+      }
+      setMessages((curr) =>
+        curr.map((m) => {
+          if (m.ai || !idSet.has(m.id)) return m;
+          const r = results[m.id];
+          return r && !r.unavailable && r.summary ? { ...m, ai: r } : { ...m, ai: {} };
+        }),
+      );
+    });
 
     return () => {
       cancelled = true;
+      // Roll back marks for anything this run didn't resolve, so a StrictMode
+      // re-run or a remount retries instead of leaving a permanent skeleton.
+      for (const id of ids) {
+        if (!sessionVerdict.has(id)) reqSet.delete(id);
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idKey, enabled]);

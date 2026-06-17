@@ -3,9 +3,9 @@
 > AI-first universal email client. Built as a mobile-ready PWA with Claude
 > Code. Submission for the aptask take-home assignment.
 
-**Live demo:** deploy pending — run locally with `npm run dev` (no setup
-needed; it boots straight into the demo inbox). The deployed URL will be added
-here once the Vercel project is live.
+**Live demo:** https://aptask-assignment-mu.vercel.app — sign in with Google or
+IMAP (Yahoo/AOL/custom). Or run locally with no setup (`npm run dev`) to boot
+straight into the demo inbox.
 
 InboxIQ unifies Gmail, Outlook (Microsoft Graph) and any IMAP mailbox (Yahoo,
 AOL, custom) into a single AI-triaged inbox. Every message ships with a
@@ -30,7 +30,7 @@ do the triage for you, on every email, before you read it.**
 | Language | TypeScript strict mode |
 | Styling | Tailwind v4 + custom CSS variables |
 | Auth | Auth.js v5 (next-auth beta) — Google & Microsoft providers |
-| AI | Anthropic Claude (Haiku 4.5 + Sonnet 4.6) with prompt caching |
+| AI | Local engine — rule-based priority + extractive summaries + template drafts (no API key) |
 | Email | `googleapis`, `@microsoft/microsoft-graph-client`, `imapflow` + `nodemailer` |
 | PWA | Serwist service worker, manifest, installable |
 | Tests | Vitest (unit) + Playwright (E2E) |
@@ -48,8 +48,8 @@ npm install --legacy-peer-deps
 
 # 2) configure
 cp .env.example .env.local
-# fill in at least: AUTH_SECRET, ANTHROPIC_API_KEY, and one provider
-#   (Google or Microsoft) — see .claude/skills/oauth-provider-setup.md
+# fill in at least: AUTH_SECRET and one provider (Google or Microsoft) —
+#   see .claude/skills/oauth-provider-setup.md. No AI key needed.
 
 # 3) run
 npm run dev        # http://localhost:3000
@@ -61,8 +61,8 @@ npm run check      # lint + typecheck + tests
 If you start the app with no providers configured, it falls back to a
 **demo inbox** with a set of realistic messages (across all five priority
 levels, plus a populated Sent folder) so the UI and AI features are explorable
-without any setup. The demo messages ship with summaries and priorities baked
-in, so AI features are visible even without an `ANTHROPIC_API_KEY`.
+without any setup. The AI engine runs fully locally, so summaries, priorities
+and drafts work everywhere with no API key.
 
 ---
 
@@ -74,7 +74,7 @@ components/          UI components (email, AI, layout, primitives)
 lib/
   email/providers/   gmail.ts, graph.ts, imap.ts — share an EmailProvider iface
   email/demo-data.ts Demo mailbox for the no-setup path
-  ai/                Claude prompts + per-feature wrappers (summarize, draft…)
+  ai/                Local engine: prioritize, summarize, draft, search
   auth/              Auth.js config + token refresh
   utils/             cn, dates
 docs/
@@ -97,22 +97,19 @@ public/              manifest, icons, sw.js (generated)
 
 ## AI features in detail
 
-| Feature | Model | Cached prompt? | Where it appears |
-|---|---|---|---|
-| One-line summary | Haiku 4.5 | yes | Below every subject in the list |
-| Priority label | Haiku 4.5 | yes | Badge on every row + message header |
-| Reply draft | Sonnet 4.6 | yes | Drawer on the message view |
-| Semantic search rewrite | Haiku 4.5 | yes | Top-of-inbox search bar |
+| Feature | How | Where it appears |
+|---|---|---|
+| One-line summary | Extractive (clean + first sentence) | Below every subject in the list |
+| Priority label | Rule-based classifier | Badge on every row + message header |
+| Reply draft | Tone-aware template | Drawer on the message view |
+| Semantic search | Local keyword extraction | Top-of-inbox search bar |
 
-For signed-in accounts, summary and priority are fetched together per row via a
-single batched call (`/api/ai/enrich-batch`) and cached in `localStorage`, so
-each message is enriched at most once and folder switches don't re-fetch.
-
-All prompts use `cache_control: { type: "ephemeral" }` so repeat calls amortize
-the system tokens. Output is always validated with `zod`. AI degrades
-gracefully: with no `ANTHROPIC_API_KEY` (or on any provider error) the row
-renders without an AI card rather than showing a fake summary or an error —
-and search falls back to plain keyword matching.
+Everything runs **fully locally** (`lib/ai/*`) — no external LLM, no API key, no
+per-call cost. For signed-in accounts, summary and priority are computed together
+per row via a single batched call (`/api/ai/enrich-batch`) and cached in
+`localStorage`, so each message is enriched at most once and folder switches
+don't re-fetch. Inputs are validated with `zod`. See
+`docs/specs/03-local-ai-engine.md`.
 
 ---
 
@@ -137,7 +134,7 @@ Full writeup: [docs/workflow.md](docs/workflow.md).
 - IMAP credentials are AES-256-GCM encrypted with `IMAP_ENCRYPTION_KEY` and kept in an httpOnly cookie (no database or KV store).
 - Every API route validates input with `zod`.
 - Email HTML bodies are sanitized server-side with DOMPurify at the provider boundary before rendering.
-- API routes are gated: in production an unauthenticated caller cannot use the AI endpoints as an open Claude proxy or act on a mailbox.
+- API routes are gated: in production an unauthenticated caller cannot hammer the AI compute endpoints or act on a mailbox.
 - IMAP host/port input is SSRF-guarded (private/loopback/link-local ranges blocked, including the cloud metadata IP).
 - Conservative security headers (X-Frame-Options, nosniff, Referrer-Policy, HSTS, Permissions-Policy) are set.
 - No secrets are committed to the repo. `.env.example` documents the contract.

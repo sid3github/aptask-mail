@@ -1,7 +1,6 @@
-import { AppShell } from "@/components/layout/AppShell";
 import { EmailList } from "@/components/email/EmailList";
 import { EmailListEnriched } from "@/components/email/EmailListEnriched";
-import { loadSearch, resolveProviders } from "@/lib/email/load";
+import { loadSearch } from "@/lib/email/load";
 
 export const dynamic = "force-dynamic";
 
@@ -14,9 +13,8 @@ export default async function SearchPage({
   const query = (q ?? "").trim();
 
   if (!query) {
-    const { accounts } = await resolveProviders();
     return (
-      <AppShell accounts={accounts}>
+      <>
         <div className="px-4 pb-1 pt-5 sm:px-6">
           <h1 className="font-display text-2xl font-semibold tracking-tight text-fg">
             Search
@@ -34,14 +32,14 @@ export default async function SearchPage({
             bar above.
           </p>
         </div>
-      </AppShell>
+      </>
     );
   }
 
-  const { messages, accounts, isDemo } = await loadSearch(query, 25);
+  const { messages, isDemo } = await loadSearch(query, 25);
 
   return (
-    <AppShell accounts={accounts}>
+    <>
       <div className="flex items-center justify-between px-4 pb-1 pt-5 sm:px-6">
         <h1 className="truncate font-display text-2xl font-semibold tracking-tight text-fg">
           Results for &ldquo;{query}&rdquo;
@@ -69,6 +67,6 @@ export default async function SearchPage({
       ) : (
         <EmailListEnriched key={query} messages={messages} />
       )}
-    </AppShell>
+    </>
   );
 }

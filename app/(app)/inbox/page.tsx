@@ -1,4 +1,3 @@
-import { AppShell } from "@/components/layout/AppShell";
 import { EmailList } from "@/components/email/EmailList";
 import { EmailListEnriched } from "@/components/email/EmailListEnriched";
 import { loadInbox } from "@/lib/email/load";
@@ -18,10 +17,10 @@ export default async function InboxPage({
 }) {
   const { label } = await searchParams;
   const folder = FOLDERS[label ?? "INBOX"] ?? FOLDERS.INBOX;
-  const { messages, accounts, isDemo } = await loadInbox(50, folder.label);
+  const { messages, isDemo } = await loadInbox(50, folder.label);
 
   return (
-    <AppShell accounts={accounts}>
+    <>
       <div className="flex items-center justify-between px-4 pb-1 pt-5 sm:px-6">
         <h1 className="font-display text-2xl font-semibold tracking-tight text-fg">
           {folder.title}
@@ -37,6 +36,6 @@ export default async function InboxPage({
       ) : (
         <EmailListEnriched key={folder.label} messages={messages} label={folder.label} />
       )}
-    </AppShell>
+    </>
   );
 }

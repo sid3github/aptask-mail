@@ -149,6 +149,31 @@ body {
     transform: translateX(100%);
   }
 }
+/* Landing: editorial provider ticker. Track holds two identical halves; sliding
+   exactly -50% loops seamlessly. */
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+.animate-marquee {
+  animation: marquee 42s linear infinite;
+}
+/* Landing: slow ambient drift for the atmospheric glow. */
+@keyframes aurora-drift {
+  0%,
+  100% {
+    transform: translate3d(-2%, 0, 0) scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate3d(2%, -1.5%, 0) scale(1.08);
+    opacity: 1;
+  }
+}
+.animate-aurora {
+  animation: aurora-drift 16s ease-in-out infinite;
+}
 
 .fade-up {
   animation: fade-up 0.65s cubic-bezier(0.22, 0.7, 0.2, 1) both;

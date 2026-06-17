@@ -2,6 +2,7 @@ import { ImapFlow, type FetchMessageObject } from "imapflow";
 import { simpleParser } from "mailparser";
 import nodemailer from "nodemailer";
 import type {
+  Attachment,
   DraftMessage,
   EmailMessage,
   EmailProvider,
@@ -243,6 +244,14 @@ export class ImapProvider implements EmailProvider {
         const toAddrs = Array.isArray(parsed.to)
           ? parsed.to.flatMap((t) => t.value)
           : parsed.to?.value ?? [];
+        // The attachment id is the index into parsed.attachments; getAttachment
+        // re-parses and indexes back into the same array.
+        const attachments: Attachment[] = (parsed.attachments ?? []).map((att, index) => ({
+          id: String(index),
+          filename: att.filename ?? "attachment",
+          contentType: att.contentType ?? "application/octet-stream",
+          size: att.size ?? 0,
+        }));
         return {
           id,
           accountId: this.accountId,
@@ -261,6 +270,39 @@ export class ImapProvider implements EmailProvider {
           starred: false,
           labels: ["INBOX"],
           hasAttachments: (parsed.attachments?.length ?? 0) > 0,
+          ...(attachments.length > 0 ? { attachments } : {}),
+        };
+      } finally {
+        lock.release();
+      }
+    });
+  }
+
+  async getAttachment(
+    messageId: string,
+    attachmentId: string,
+  ): Promise<{ filename: string; contentType: string; data: Buffer }> {
+    return this.withClient(async (c) => {
+      const uid = Number(messageId.split(":").pop());
+      const lock = await this.lockMailboxForUid(c, uid);
+      if (!lock) {
+        throw new ProviderError("imap", "NOT_FOUND", `Message ${messageId} not found in INBOX or Sent`);
+      }
+      try {
+        const { content } = await c.download(String(uid), undefined, { uid: true });
+        const parsed = await simpleParser(content);
+        const att = (parsed.attachments ?? [])[Number(attachmentId)];
+        if (!att) {
+          throw new ProviderError(
+            "imap",
+            "NOT_FOUND",
+            `Attachment ${attachmentId} not found on message ${messageId}`,
+          );
+        }
+        return {
+          filename: att.filename ?? "attachment",
+          contentType: att.contentType ?? "application/octet-stream",
+          data: att.content,
         };
       } finally {
         lock.release();
@@ -285,6 +327,11 @@ export class ImapProvider implements EmailProvider {
       subject: draft.subject,
       text: draft.bodyText,
       html: draft.bodyHtml,
+      attachments: draft.attachments?.map((a) => ({
+        filename: a.filename,
+        content: Buffer.from(a.dataBase64, "base64"),
+        contentType: a.contentType,
+      })),
     });
     return { id: `imap:${this.accountId}:${info.messageId}` };
   }

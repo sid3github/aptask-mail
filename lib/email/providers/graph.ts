@@ -1,5 +1,6 @@
 import { Client } from "@microsoft/microsoft-graph-client";
 import type {
+  Attachment,
   DraftMessage,
   EmailMessage,
   EmailProvider,
@@ -26,6 +27,13 @@ type GraphMessage = {
   conversationId?: string;
   categories?: string[];
   parentFolderId?: string;
+  attachments?: {
+    id?: string;
+    name?: string;
+    contentType?: string;
+    size?: number;
+    isInline?: boolean;
+  }[];
 };
 
 function client(accessToken: string): Client {
@@ -49,6 +57,14 @@ function normalize(m: GraphMessage, accountId: string, boxLabel: string): EmailM
   const html = m.body?.contentType?.toLowerCase() === "html" ? m.body?.content : undefined;
   const text = m.body?.contentType?.toLowerCase() === "text" ? m.body?.content : undefined;
   const starred = m.flag?.flagStatus === "flagged";
+  const attachments: Attachment[] = (m.attachments ?? [])
+    .filter((a) => a.isInline !== true && a.id)
+    .map((a) => ({
+      id: a.id as string,
+      filename: a.name ?? "attachment",
+      contentType: a.contentType ?? "application/octet-stream",
+      size: a.size ?? 0,
+    }));
   return {
     id: `graph:${m.id}`,
     accountId,
@@ -73,6 +89,7 @@ function normalize(m: GraphMessage, accountId: string, boxLabel: string): EmailM
       ...(m.categories ?? []),
     ],
     hasAttachments: m.hasAttachments ?? false,
+    ...(attachments.length > 0 ? { attachments } : {}),
   };
 }
 
@@ -155,12 +172,31 @@ export class GraphProvider implements EmailProvider {
   async getMessage(id: string): Promise<EmailMessage> {
     return this.run(async () => {
       const native = id.replace(/^graph:/, "");
-      const m: GraphMessage = await this.c.api(`/me/messages/${native}`).get();
+      const m: GraphMessage = await this.c
+        .api(`/me/messages/${native}?$expand=attachments`)
+        .get();
       // Derive the folder label from the parent folder when recognizable; the
       // sent-items well-known folder id contains "sentitems". Default to INBOX.
       const folderId = (m.parentFolderId ?? "").toLowerCase();
       const boxLabel = folderId.includes("sentitems") ? "SENT" : "INBOX";
       return normalize(m, this.accountId, boxLabel);
+    });
+  }
+
+  async getAttachment(
+    messageId: string,
+    attachmentId: string,
+  ): Promise<{ filename: string; contentType: string; data: Buffer }> {
+    return this.run(async () => {
+      const native = messageId.replace(/^graph:/, "");
+      const att: { name?: string; contentType?: string; contentBytes?: string } = await this.c
+        .api(`/me/messages/${native}/attachments/${attachmentId}`)
+        .get();
+      return {
+        filename: att.name ?? "attachment",
+        contentType: att.contentType ?? "application/octet-stream",
+        data: Buffer.from(att.contentBytes ?? "", "base64"),
+      };
     });
   }
 
@@ -176,6 +212,12 @@ export class GraphProvider implements EmailProvider {
           toRecipients: recipients(draft.to),
           ccRecipients: draft.cc ? recipients(draft.cc) : undefined,
           bccRecipients: draft.bcc ? recipients(draft.bcc) : undefined,
+          attachments: draft.attachments?.map((a) => ({
+            "@odata.type": "#microsoft.graph.fileAttachment",
+            name: a.filename,
+            contentType: a.contentType,
+            contentBytes: a.dataBase64,
+          })),
         },
         saveToSentItems: true,
       };

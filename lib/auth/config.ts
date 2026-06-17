@@ -112,6 +112,15 @@ type AppJWT = {
 
 export const authConfig: NextAuthConfig = {
   providers: buildProviders(),
+  // A real AUTH_SECRET is required in production. In development we fall back to
+  // a fixed throwaway value so a fresh clone runs demo mode out of the box
+  // (`npm run dev` with no .env.local) without Auth.js MissingSecret errors —
+  // it only signs an anonymous, provider-less session cookie.
+  secret:
+    process.env.AUTH_SECRET ??
+    (process.env.NODE_ENV !== "production"
+      ? "inboxiq-dev-only-insecure-secret-change-in-prod"
+      : undefined),
   trustHost: true,
   session: { strategy: "jwt" },
   callbacks: {

@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { anthropic, MODEL_HAIKU } from "./anthropic";
-import { SUMMARY_SYSTEM } from "./prompts";
+import { collapse } from "./text";
 
 export const SummaryInputSchema = z.object({
   from: z.string(),
@@ -10,33 +9,34 @@ export const SummaryInputSchema = z.object({
 });
 export type SummaryInput = z.infer<typeof SummaryInputSchema>;
 
-const MAX_BODY = 1500;
+const MAX = 140;
+// A leading salutation we drop so the summary starts with real content.
+const GREETING =
+  /^(dear\s+[^,.\n]{0,40}[,.!]?\s+|hi\s+[^,.\n]{0,30}[,!]?\s+|hello[,!]?\s+|hey\s+[^,.\n]{0,30}[,!]?\s+|greetings[,!]?\s+|to whom it may concern[,:]?\s+)/i;
+
+function clean(raw: string): string {
+  let s = collapse(raw).replace(/https?:\/\/\S+/gi, "");
+  s = collapse(s).replace(GREETING, "").trim();
+  return s;
+}
+
+function firstSentence(s: string): string {
+  for (const part of s.split(/(?<=[.!?])\s+/)) {
+    if (part.trim().length >= 20) return part.trim();
+  }
+  return s;
+}
+
+function extract(input: SummaryInput): string {
+  const source = (input.body && input.body.trim()) || input.snippet || "";
+  let s = clean(source);
+  if (s.length === 0) s = collapse(input.subject);
+  s = firstSentence(s);
+  if (s.length === 0) s = collapse(input.subject);
+  if (s.length > MAX) s = `${s.slice(0, MAX - 1).trimEnd()}…`;
+  return s;
+}
 
 export async function summarize(input: SummaryInput): Promise<string> {
-  const parsed = SummaryInputSchema.parse(input);
-  const userContent = [
-    `From: ${parsed.from}`,
-    `Subject: ${parsed.subject}`,
-    `Snippet: ${parsed.snippet}`,
-    parsed.body ? `Body: ${parsed.body.slice(0, MAX_BODY)}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  const res = await anthropic().messages.create({
-    model: MODEL_HAIKU,
-    max_tokens: 80,
-    system: [
-      {
-        type: "text",
-        text: SUMMARY_SYSTEM,
-        cache_control: { type: "ephemeral" },
-      },
-    ],
-    messages: [{ role: "user", content: userContent }],
-  });
-
-  const block = res.content.find((b) => b.type === "text");
-  const text = block && block.type === "text" ? block.text.trim() : "";
-  return text.slice(0, 120);
+  return extract(SummaryInputSchema.parse(input));
 }

@@ -16,7 +16,8 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ["lucide-react", "date-fns"],
     // Always refetch dynamic routes on client navigation so switching folders
     // (?label=) shows fresh data immediately instead of a cached payload.
-    staleTimes: { dynamic: 0, static: 0 },
+    // (`static` is left at its default — Next rejects values below 30.)
+    staleTimes: { dynamic: 0 },
   },
   // jsdom backs server-side DOMPurify HTML sanitization; keep it (and the other
   // heavy server-only deps) out of the webpack bundle.

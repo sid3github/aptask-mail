@@ -1,23 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { hasAnthropicKey } from "@/lib/ai/anthropic";
 import { summarize } from "@/lib/ai/summarize";
 import { prioritize } from "@/lib/ai/prioritize";
-import { auth } from "@/lib/auth/config";
-import { readImapAccount } from "@/lib/auth/imap-session";
+import { isApiAuthorized } from "@/lib/auth/authorize";
 
 export const runtime = "nodejs";
-
-// Gate AI routes so an unauthenticated caller cannot use us as an open Claude
-// billing/prompt proxy. Allowed when: an Auth.js session exists, OR an IMAP
-// account cookie exists, OR we're outside production (local demo).
-async function isAuthorized(): Promise<boolean> {
-  if (process.env.NODE_ENV !== "production") return true;
-  const session = await auth();
-  if (session) return true;
-  const imap = await readImapAccount();
-  return imap !== null;
-}
 
 const ItemSchema = z.object({
   id: z.string().min(1),
@@ -31,35 +18,22 @@ const BatchSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  if (!(await isAuthorized())) {
+  if (!(await isApiAuthorized())) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const parsed = BatchSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  // No key configured → AI unavailable. Return empty markers so the UI
-  // degrades cleanly (no card, no fake summary, never an error string).
-  if (!hasAnthropicKey()) {
-    return NextResponse.json({
-      results: Object.fromEntries(parsed.data.items.map((i) => [i.id, { unavailable: true }])),
-    });
-  }
-
-  // Run each item's two calls in parallel, all items in parallel too.
+  // Local engine — always available, no key required. Compute summary +
+  // priority for every item.
   const results = await Promise.all(
     parsed.data.items.map(async (i) => {
-      try {
-        const [summary, p] = await Promise.all([
-          summarize({ from: i.from, subject: i.subject, snippet: i.snippet }),
-          prioritize({ from: i.from, subject: i.subject, snippet: i.snippet }),
-        ]);
-        return [i.id, { summary, priority: p.priority, priorityReason: p.reason }] as const;
-      } catch {
-        // Never surface raw provider errors (e.g. billing/rate-limit 400s)
-        // to the client. Mark unavailable; the email renders without a card.
-        return [i.id, { unavailable: true }] as const;
-      }
+      const [summary, p] = await Promise.all([
+        summarize({ from: i.from, subject: i.subject, snippet: i.snippet }),
+        prioritize({ from: i.from, subject: i.subject, snippet: i.snippet }),
+      ]);
+      return [i.id, { summary, priority: p.priority, priorityReason: p.reason }] as const;
     }),
   );
   return NextResponse.json({ results: Object.fromEntries(results) });

@@ -1,7 +1,5 @@
 import { z } from "zod";
-import { anthropic, MODEL_HAIKU } from "./anthropic";
-import { PRIORITY_SYSTEM } from "./prompts";
-import type { AiPriority } from "@/lib/email/providers/types";
+import { parseFrom } from "./text";
 
 export const PriorityInputSchema = z.object({
   from: z.string(),
@@ -10,41 +8,49 @@ export const PriorityInputSchema = z.object({
 });
 export type PriorityInput = z.infer<typeof PriorityInputSchema>;
 
-const PriorityOutputSchema = z.object({
-  priority: z.enum(["urgent", "important", "newsletter", "promo", "other"]),
-  reason: z.string().max(80),
-});
-export type PriorityOutput = z.infer<typeof PriorityOutputSchema>;
+export type PriorityOutput = {
+  priority: "urgent" | "important" | "newsletter" | "promo" | "other";
+  reason: string;
+};
+
+// Order matters — first match wins. Tuned to mirror how a person triages a list.
+const URGENT =
+  /\b(urgent|asap|immediately|action (required|needed)|payment (failed|declined|overdue)|past due|overdue|final notice|suspend(ed|ing)?|deadline|expire[sd]?|security alert|verify your (account|identity)|verification code|one[- ]time (code|password)|otp|2fa|password reset|unauthorized|fraud|account (locked|disabled))\b/i;
+const PROMO =
+  /\b(\d{1,3}% ?off|sale|deal|discount|save \$?\d|coupon|promo|limited time|buy now|shop now|doorbuster|free shipping|clearance|offer ends|black friday|cyber monday)\b/i;
+const PROMO_SENDER = /\b(deals?|promo(tion)?s?|marketing|offers?|sales)\b/;
+const NEWSLETTER =
+  /\b(newsletter|digest|weekly|roundup|this week|edition|bulletin|unsubscribe)\b/i;
+const BUSINESS =
+  /\b(invoice|receipt|payment received|contract|proposal|agreement|meeting|review|document|signature|sign|schedule|interview|application|project|quote|statement|report)\b/i;
+const AUTOMATED =
+  /\b(no[- ]?reply|do[- ]?not[- ]?reply|notifications?|alerts?|updates?|team|support|info|service|billing|account|mailer|automated)\b/i;
+
+function classify(input: PriorityInput): PriorityOutput {
+  const text = `${input.subject} ${input.snippet}`;
+  const { name, email } = parseFrom(input.from);
+  const localPart = email.split("@")[0] ?? "";
+
+  if (URGENT.test(text)) {
+    return { priority: "urgent", reason: "Time-sensitive — needs your attention" };
+  }
+  if (PROMO.test(text) || PROMO_SENDER.test(localPart)) {
+    return { priority: "promo", reason: "Promotional / marketing" };
+  }
+  if (NEWSLETTER.test(text)) {
+    return { priority: "newsletter", reason: "Newsletter / digest" };
+  }
+  // A two-word display name that isn't an automated alias reads as a real person.
+  const personal = /\S+\s+\S+/.test(name) && !AUTOMATED.test(name);
+  if (BUSINESS.test(text) || personal) {
+    return {
+      priority: "important",
+      reason: BUSINESS.test(text) ? "Business / document" : "Direct message",
+    };
+  }
+  return { priority: "other", reason: "General" };
+}
 
 export async function prioritize(input: PriorityInput): Promise<PriorityOutput> {
-  const parsed = PriorityInputSchema.parse(input);
-  const userContent = [
-    `From: ${parsed.from}`,
-    `Subject: ${parsed.subject}`,
-    `Snippet: ${parsed.snippet}`,
-  ].join("\n");
-
-  const res = await anthropic().messages.create({
-    model: MODEL_HAIKU,
-    max_tokens: 120,
-    system: [
-      {
-        type: "text",
-        text: PRIORITY_SYSTEM,
-        cache_control: { type: "ephemeral" },
-      },
-    ],
-    messages: [{ role: "user", content: userContent }],
-  });
-
-  const block = res.content.find((b) => b.type === "text");
-  const raw = block && block.type === "text" ? block.text.trim() : "{}";
-  // Strip code fences if model adds them.
-  const cleaned = raw.replace(/^```(?:json)?/, "").replace(/```$/, "").trim();
-  try {
-    const obj = JSON.parse(cleaned);
-    return PriorityOutputSchema.parse(obj);
-  } catch {
-    return { priority: "other" as AiPriority, reason: "fallback" };
-  }
+  return classify(PriorityInputSchema.parse(input));
 }

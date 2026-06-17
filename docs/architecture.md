@@ -1,6 +1,6 @@
 # InboxIQ — Architecture (one page)
 
-> Universal AI-first email client. PWA, three providers, Claude-powered AI.
+> Universal AI-first email client. PWA, three providers, fully-local AI engine.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -44,11 +44,11 @@
        │                          │             │            │
        ▼                          ▼             ▼            ▼
 ┌──────────────┐  ┌────────────────────┐  ┌─────────┐  ┌───────────────┐
-│  Gmail API   │  │ Microsoft Graph    │  │  IMAP   │  │  Anthropic    │
-│ (googleapis) │  │ (msgraph-client)   │  │ (imap-  │  │  Claude API   │
-│              │  │                    │  │  flow)  │  │  Haiku +      │
-│              │  │                    │  │ Yahoo / │  │  Sonnet       │
-│              │  │                    │  │  AOL    │  │  (cached)     │
+│  Gmail API   │  │ Microsoft Graph    │  │  IMAP   │  │  Local AI     │
+│ (googleapis) │  │ (msgraph-client)   │  │ (imap-  │  │  engine       │
+│              │  │                    │  │  flow)  │  │  rules +      │
+│              │  │                    │  │ Yahoo / │  │  extractive   │
+│              │  │                    │  │  AOL    │  │  (no key)     │
 └──────────────┘  └────────────────────┘  └─────────┘  └───────────────┘
 ```
 
@@ -78,17 +78,23 @@
 
 ## Request flow: "summarize + prioritize a row"
 
+The AI runs **fully locally** — no external LLM, no API key, no per-call cost.
+See `docs/specs/03-local-ai-engine.md`.
+
 1. `EmailListEnriched` posts `{ items: [{ id, from, subject, snippet }, …] }`
-   (≤25 per batch) to `/api/ai/enrich-batch`.
-2. The route validates with zod. With no `ANTHROPIC_API_KEY` it returns
-   `{ unavailable: true }` markers and the UI degrades cleanly — the row simply
-   renders without an AI card, never a fake summary or an error string.
-3. With a key, each item runs `summarize()` and `prioritize()` in parallel
-   (Claude Haiku 4.5, **cached system prompt** via `cache_control: ephemeral`).
-   Output is zod-validated; any per-item failure (rate limit, billing) is
-   swallowed into an `unavailable` marker, never surfaced to the client.
-4. Real summaries are written to `localStorage`; subsequent loads of the same
-   message read the cached verdict instead of calling the API again.
+   in chunks of ≤25 to `/api/ai/enrich-batch`.
+2. The route validates with zod and computes, for every item:
+   - `prioritize()` — a rule-based classifier over sender + subject + snippet
+     (urgent / important / newsletter / promo / other) in `lib/ai/prioritize.ts`.
+   - `summarize()` — extractive one-liner (clean greeting/footer/URL noise, take
+     the first substantive sentence, subject fallback) in `lib/ai/summarize.ts`.
+   Results are returned for **every** id — there are no `unavailable` markers,
+   because the engine is always on.
+3. Draft replies use `lib/ai/draft.ts` — a tone-aware template (greeting +
+   intent + sign-off). Semantic search parsing is local keyword extraction
+   (`lib/ai/search.ts`).
+4. Verdicts are cached in `localStorage` (`inboxiq:ai-cache:v2`) keyed by message
+   id, so a row is enriched at most once per session.
 
 ## Provider abstraction
 
@@ -111,18 +117,34 @@ can be added by implementing the interface — no UI changes required.
 ## Security
 
 - Auth.js sessions are JWT cookies, httpOnly + secure.
-- OAuth access/refresh tokens stored inside the JWT, never exposed to the client.
+- OAuth **refresh** tokens stay server-side inside the encrypted JWT and are
+  never sent to the client. The short-lived **access** token is surfaced to the
+  signed-in user's own session for their own provider calls (scoped to that
+  user, rotated on refresh). *Known hardening item: proxy provider calls so the
+  access token never leaves the server.*
+- All `/api/*` routes share one **fail-closed** authorization gate
+  (`lib/auth/authorize.ts`): demo mode is an open sandbox (the AI runs locally
+  over request text and touches no real mailbox), but as soon as any real
+  provider is configured a valid session or IMAP cookie is required. There is
+  **no** `NODE_ENV`-based bypass.
 - IMAP credentials (host, port, user, password, SMTP info) are AES-256-GCM
   encrypted with `IMAP_ENCRYPTION_KEY` and kept in an **httpOnly cookie**
   (`iq_imap`), decrypted server-side per request in `lib/auth/imap-session.ts`.
   There is no database or Vercel KV — the encrypted cookie *is* the store.
-- Every API route validates input with `zod` before touching a provider.
+- Every API route validates input with `zod` before touching a provider, with
+  bounded sizes (recipient lists, body, attachment count/bytes) so a single
+  authenticated request can't be used for mass-mail relay or memory-DoS abuse.
+- Outbound IMAP/SMTP hosts are checked against an SSRF denylist (loopback,
+  RFC1918, link-local incl. the `169.254.169.254` cloud-metadata endpoint, IPv6
+  ULA) at sign-in.
 - Email HTML bodies are sanitized server-side with DOMPurify
   (`lib/email/providers/sanitize.ts`, jsdom-backed) at the provider
   normalize boundary, where scripts, inline event handlers and other XSS
   vectors are stripped. `MessageView` then renders that already-sanitized
-  HTML via `dangerouslySetInnerHTML` inside a contained, light-background
-  "letter" card (not an iframe) so it looks intentional on any app theme.
+  HTML inside a **sandboxed, auto-height `<iframe>`** (`EmailFrame`) with no
+  `allow-scripts` — so even markup that slipped past DOMPurify cannot execute,
+  email CSS can't leak into the app, and remote images are blocked until the
+  user opts in (no tracking pixels). Defense in depth on top of sanitization.
 
 ## Deployment
 

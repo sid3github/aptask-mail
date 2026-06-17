@@ -2,21 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import type { ModifyOp } from "@/lib/email/providers/types";
 import { providerForMessageId } from "@/lib/email/load";
-import { auth } from "@/lib/auth/config";
-import { readImapAccount } from "@/lib/auth/imap-session";
+import { isApiAuthorized } from "@/lib/auth/authorize";
 
 export const runtime = "nodejs";
-
-// Reject unauthenticated callers in production. Allowed when: an Auth.js
-// session exists, OR an IMAP account cookie exists, OR we're outside
-// production (local demo).
-async function isAuthorized(): Promise<boolean> {
-  if (process.env.NODE_ENV !== "production") return true;
-  const session = await auth();
-  if (session) return true;
-  const imap = await readImapAccount();
-  return imap !== null;
-}
 
 const ModifySchema = z.object({
   id: z.string().min(1),
@@ -32,7 +20,7 @@ const ModifySchema = z.object({
 });
 
 export async function POST(req: Request) {
-  if (!(await isAuthorized())) {
+  if (!(await isApiAuthorized())) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const parsed = ModifySchema.safeParse(await req.json().catch(() => null));

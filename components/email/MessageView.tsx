@@ -1,7 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, Star, Trash2, Sparkles, ArrowLeft, Reply, Forward, Check } from "lucide-react";
+import { Archive, Star, Trash2, Sparkles, ArrowLeft, Reply, Forward, Check, Paperclip, Download } from "lucide-react";
 import Link from "next/link";
 import type { EmailMessage } from "@/lib/email/providers/types";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { PriorityBadge } from "./PriorityBadge";
 import { emailDateFull } from "@/lib/utils/date";
 import { DraftPanel } from "@/components/ai/DraftPanel";
 import { MessageAiEnrichment } from "@/components/ai/MessageAiEnrichment";
-import { cn } from "@/lib/utils/cn";
+import { EmailFrame } from "./EmailFrame";
 
 function initials(name?: string, email?: string): string {
   const src = name ?? email ?? "?";
@@ -101,12 +101,7 @@ export function MessageView({ message: initial }: { message: EmailMessage }) {
   }
 
   return (
-    <article
-      className={cn(
-        "flex flex-col transition-[padding] duration-200",
-        showDraft && "lg:pr-[440px]",
-      )}
-    >
+    <article className="flex flex-col">
       <header className="sticky top-16 z-10 border-b border-border bg-bg/85 backdrop-blur-md">
         <div className="flex max-w-3xl items-center gap-1 px-2 py-2.5 sm:px-4">
           <Link
@@ -185,6 +180,10 @@ export function MessageView({ message: initial }: { message: EmailMessage }) {
         )}
 
         <Body html={message.bodyHtml} text={message.bodyText} />
+
+        {message.attachments && message.attachments.length > 0 && (
+          <Attachments messageId={message.id} attachments={message.attachments} />
+        )}
       </div>
 
       {showDraft && (
@@ -220,6 +219,49 @@ function AiCard({ message }: { message: EmailMessage }) {
   );
 }
 
+function attachmentSize(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function Attachments({
+  messageId,
+  attachments,
+}: {
+  messageId: string;
+  attachments: NonNullable<EmailMessage["attachments"]>;
+}) {
+  return (
+    <div className="mt-6">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-fg-muted">
+        <Paperclip size={13} />
+        {attachments.length} {attachments.length === 1 ? "attachment" : "attachments"}
+      </div>
+      <ul className="mt-2 flex flex-wrap gap-2">
+        {attachments.map((a) => (
+          <li key={a.id}>
+            <a
+              href={`/api/email/attachment?id=${encodeURIComponent(messageId)}&attachmentId=${encodeURIComponent(a.id)}`}
+              download={a.filename}
+              className="group inline-flex items-center gap-2.5 rounded-xl border border-border bg-surface px-3 py-2 transition-colors hover:bg-surface-2"
+            >
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-surface-2 text-fg-muted">
+                <Paperclip size={14} />
+              </span>
+              <span className="min-w-0">
+                <span className="block max-w-[200px] truncate text-sm text-fg">{a.filename}</span>
+                <span className="block text-xs text-fg-subtle">{attachmentSize(a.size)}</span>
+              </span>
+              <Download size={15} className="ml-1 shrink-0 text-fg-subtle group-hover:text-fg" />
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function IconButton({
   icon,
   label,
@@ -246,22 +288,11 @@ function IconButton({
 
 function Body({ html, text }: { html?: string; text?: string }) {
   if (html) {
-    // Email HTML assumes a light background — render it inside a contained
-    // "letter" card with a fixed light surface so it looks intentional on any
-    // app theme, instead of a full-bleed white slab.
-    return (
-      <div className="mt-7 overflow-hidden rounded-2xl border border-border bg-white">
-        <div
-          className={cn(
-            "max-w-none px-5 py-5 text-[15px] leading-relaxed text-zinc-900",
-            "[&_a]:text-accent [&_a]:underline [&_a]:underline-offset-2",
-            "[&_p]:my-3 [&_img]:max-w-full [&_img]:rounded-lg",
-            "[&_blockquote]:border-l-2 [&_blockquote]:border-zinc-200 [&_blockquote]:pl-4 [&_blockquote]:text-zinc-500",
-          )}
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
-      </div>
-    );
+    // Render the (already DOMPurify-sanitized) email HTML inside a sandboxed,
+    // auto-height iframe so its own CSS can't leak into the app and a wide
+    // marketing layout reads at full width instead of collapsing to its mobile
+    // breakpoint.
+    return <EmailFrame html={html} />;
   }
   return (
     <div className="mt-7 rounded-2xl border border-border bg-surface px-5 py-5">

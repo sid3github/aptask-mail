@@ -1,5 +1,6 @@
 import { google, gmail_v1 } from "googleapis";
 import type {
+  Attachment,
   DraftMessage,
   EmailMessage,
   EmailProvider,
@@ -10,6 +11,7 @@ import type {
 import { TokenExpiredError, ProviderError } from "./types";
 import { parseAddressList, htmlFromBase64, textFromBase64 } from "./parse";
 import { sanitizeHtml } from "./sanitize";
+import { buildMimeMessage } from "../mime";
 
 const LABEL_MAP: Record<string, string> = {
   INBOX: "INBOX",
@@ -35,12 +37,18 @@ function header(headers: gmail_v1.Schema$MessagePartHeader[] | undefined, name: 
 
 function walkParts(
   payload: gmail_v1.Schema$MessagePart | undefined,
-  out: { text?: string; html?: string; hasAttachments: boolean },
+  out: { text?: string; html?: string; hasAttachments: boolean; attachments: Attachment[] },
 ): void {
   if (!payload) return;
   const mime = payload.mimeType ?? "";
   if (payload.filename && payload.body?.attachmentId) {
     out.hasAttachments = true;
+    out.attachments.push({
+      id: payload.body.attachmentId,
+      filename: payload.filename,
+      contentType: payload.mimeType ?? "application/octet-stream",
+      size: payload.body.size ?? 0,
+    });
   }
   if (mime === "text/plain" && payload.body?.data) {
     out.text = textFromBase64(payload.body.data);
@@ -56,7 +64,12 @@ function normalize(
 ): EmailMessage {
   const headers = msg.payload?.headers ?? [];
   const labels = msg.labelIds ?? [];
-  const out = { text: undefined as string | undefined, html: undefined as string | undefined, hasAttachments: false };
+  const out = {
+    text: undefined as string | undefined,
+    html: undefined as string | undefined,
+    hasAttachments: false,
+    attachments: [] as Attachment[],
+  };
   walkParts(msg.payload, out);
 
   return {
@@ -75,6 +88,7 @@ function normalize(
     starred: labels.includes("STARRED"),
     labels: labels.map((l) => LABEL_MAP[l] ?? l),
     hasAttachments: out.hasAttachments,
+    ...(out.attachments.length > 0 ? { attachments: out.attachments } : {}),
   };
 }
 
@@ -135,21 +149,46 @@ export class GmailProvider implements EmailProvider {
     });
   }
 
+  async getAttachment(
+    messageId: string,
+    attachmentId: string,
+  ): Promise<{ filename: string; contentType: string; data: Buffer }> {
+    return this.run(async () => {
+      const native = messageId.replace(/^gmail:/, "");
+      const [att, msg] = await Promise.all([
+        this.gmail.users.messages.attachments.get({
+          userId: "me",
+          messageId: native,
+          id: attachmentId,
+        }),
+        this.gmail.users.messages.get({ userId: "me", id: native, format: "full" }),
+      ]);
+      const data = Buffer.from(att.data.data ?? "", "base64url");
+
+      // Walk the message parts to recover the filename/contentType for this id.
+      let filename = "attachment";
+      let contentType = "application/octet-stream";
+      const visit = (payload: gmail_v1.Schema$MessagePart | undefined): boolean => {
+        if (!payload) return false;
+        if (payload.body?.attachmentId === attachmentId) {
+          filename = payload.filename || filename;
+          contentType = payload.mimeType ?? contentType;
+          return true;
+        }
+        for (const p of payload.parts ?? []) {
+          if (visit(p)) return true;
+        }
+        return false;
+      };
+      visit(msg.data.payload);
+
+      return { filename, contentType, data };
+    });
+  }
+
   async sendMessage(draft: DraftMessage): Promise<{ id: string }> {
     return this.run(async () => {
-      const headers: string[] = [];
-      headers.push(`To: ${draft.to.map((a) => a.email).join(", ")}`);
-      if (draft.cc?.length) headers.push(`Cc: ${draft.cc.map((a) => a.email).join(", ")}`);
-      if (draft.bcc?.length) headers.push(`Bcc: ${draft.bcc.map((a) => a.email).join(", ")}`);
-      headers.push(`Subject: ${draft.subject}`);
-      headers.push("MIME-Version: 1.0");
-      if (draft.bodyHtml) {
-        headers.push("Content-Type: text/html; charset=UTF-8");
-      } else {
-        headers.push("Content-Type: text/plain; charset=UTF-8");
-      }
-      const body = draft.bodyHtml ?? draft.bodyText;
-      const raw = Buffer.from(`${headers.join("\r\n")}\r\n\r\n${body}`)
+      const raw = Buffer.from(buildMimeMessage(draft))
         .toString("base64")
         .replace(/\+/g, "-")
         .replace(/\//g, "_")

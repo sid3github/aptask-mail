@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 import { MessageView } from "@/components/email/MessageView";
-import { AppShell } from "@/components/layout/AppShell";
-import { DEMO_MESSAGES, DEMO_ACCOUNT_ID } from "@/lib/email/demo-data";
-import { providerForMessageId, resolveProviders } from "@/lib/email/load";
+import { DEMO_MESSAGES } from "@/lib/email/demo-data";
+import { providerForMessageId } from "@/lib/email/load";
 import type { EmailMessage } from "@/lib/email/providers/types";
 
 export const dynamic = "force-dynamic";
@@ -30,15 +29,5 @@ export default async function MessagePage({
   const message = await loadMessage(decoded);
   if (!message) notFound();
 
-  const { accounts } = await resolveProviders();
-  const list =
-    accounts.length > 0
-      ? accounts
-      : [{ id: DEMO_ACCOUNT_ID, email: "inbox@inboxiq.app", provider: "demo" as const }];
-
-  return (
-    <AppShell accounts={list}>
-      <MessageView message={message} />
-    </AppShell>
-  );
+  return <MessageView message={message} />;
 }
